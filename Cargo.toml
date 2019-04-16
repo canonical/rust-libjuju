@@ -1,0 +1,22 @@
+[package]
+name = "libjuju"
+version = "0.1.0"
+authors = ["Kenneth Koski <kenneth.koski@canonical.com>"]
+edition = "2018"
+
+[dependencies]
+clap = "2.32"
+dirs = "1.0"
+failure = "0.1"
+serde = "1.0"
+serde_derive = "1.0"
+serde_yaml = "0.8"
+tempfile = "3.0"
+
+[[bin]]
+name = "juju-bundle"
+path = "src/bin/juju_bundle.rs"
+
+[[bin]]
+name = "juju-kubectl"
+path = "src/bin/juju_kubectl.rs"
