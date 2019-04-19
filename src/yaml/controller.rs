@@ -5,6 +5,7 @@ use std::process::Command;
 use serde_derive::Deserialize;
 use serde_yaml::from_slice;
 
+use crate::error::JujuError;
 use crate::paths::juju_data_dir;
 
 #[derive(Debug, Clone)]
@@ -25,48 +26,44 @@ pub struct ControllerMachines {
 #[serde(deny_unknown_fields, rename_all = "kebab-case")]
 pub struct Controller {
     pub active_controller_machine_count: u32,
+    #[serde(default)]
     pub agent_version: String,
     pub api_endpoints: Vec<String>,
     pub ca_cert: String,
     pub cloud: String,
     pub controller_machine_count: u32,
+    #[serde(default)]
     pub machine_count: u32,
     pub region: String,
     pub uuid: String,
-    #[serde(default)]
-    pub name: String,
 }
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields, rename_all = "kebab-case")]
-pub struct Controllers {
+pub struct ControllerYaml {
     pub current_controller: String,
     pub controllers: HashMap<String, Controller>,
 }
 
-impl Controllers {
-    pub fn load() -> Result<Self, String> {
-        let yaml = read(juju_data_dir().join("controllers.yaml"))
-            .map_err(|err| format!("Couldn't read controllers file: {}", err))?;
+impl ControllerYaml {
+    pub fn load() -> Result<Self, JujuError> {
+        let bytes = read(juju_data_dir().join("controllers.yaml"))?;
 
-        let mut controllers: Controllers =
-            from_slice(&yaml).map_err(|err| format!("Couldn't parse controllers: {}", err))?;
-
-        for (name, controller) in &mut controllers.controllers {
-            controller.name = name.clone();
-        }
-
-        Ok(controllers)
+        Ok(from_slice(&bytes)?)
     }
 
-    pub fn get(&self, name: Option<&str>) -> Result<&Controller, String> {
+    pub fn get(&self, name: Option<&str>) -> Result<&Controller, JujuError> {
         let n = name.unwrap_or(&self.current_controller);
         self.controllers
             .get(n)
-            .ok_or_else(|| format!("Unknown controller {}", n))
+            .ok_or_else(|| JujuError::ControllerNotFound(n.to_string()))
     }
 
-    pub fn substrate(&self, name: &str) -> Result<Substrate, String> {
+    pub fn validate_name(&self, name: Option<&str>) -> String {
+        name.unwrap_or(&self.current_controller).into()
+    }
+
+    pub fn substrate(&self, name: &str) -> Result<Substrate, JujuError> {
         let yaml = Command::new("juju")
             .args(&[
                 "status",
@@ -75,8 +72,7 @@ impl Controllers {
                 "--format",
                 "yaml",
             ])
-            .output()
-            .map_err(|err| format!("Couldn't determine cloud type: {}", err))?
+            .output()?
             .stdout;
 
         let controller = self.get(Some(name))?;

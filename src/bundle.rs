@@ -14,11 +14,18 @@ pub enum BundleType {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields, rename_all = "kebab-case")]
+pub struct Annotations {
+    gui_x: String,
+    gui_y: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Application {
     #[serde(default)]
-    pub annotations: HashMap<String, String>,
-    pub build: Option<String>,
+    pub annotations: Option<Annotations>,
+    pub source: Option<String>,
     pub charm: String,
     pub constraints: Option<String>,
     #[serde(default)]
@@ -55,9 +62,7 @@ pub enum Bundle {
 
 impl Bundle {
     pub fn load<P: Into<PathBuf>>(path: P) -> Result<Self, JujuError> {
-        let yaml = read(path.into())?;
-
-        from_slice(&yaml).map_err(|err| JujuError::DeserError(format!("{}", err)))
+        Ok(from_slice(&read(path.into())?)?)
     }
 
     pub fn save<P: Into<PathBuf>>(&self, path: P) -> Result<(), JujuError> {
