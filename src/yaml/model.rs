@@ -10,8 +10,8 @@ use crate::paths::juju_data_dir;
 #[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields, tag = "type", rename_all = "kebab-case")]
 pub enum Model {
-    Iaas { uuid: String, branch: String },
-    Caas { uuid: String, branch: String },
+    Iaas { uuid: String, branch: Option<String> },
+    Caas { uuid: String, branch: Option<String> },
 }
 
 #[derive(Debug, Clone, Deserialize)]

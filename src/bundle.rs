@@ -8,6 +8,15 @@ use serde_yaml::{from_slice, to_vec};
 use crate::error::JujuError;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum Value {
+    String(String),
+    Integer(i64),
+    Boolean(bool),
+    None,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields, rename_all = "kebab-case")]
 pub enum BundleType {
     Kubernetes,
@@ -27,6 +36,8 @@ pub struct Application {
     pub annotations: Option<Annotations>,
     pub source: Option<String>,
     pub charm: String,
+    #[serde(default)]
+    pub config: HashMap<String, Value>,
     pub constraints: Option<String>,
     #[serde(default)]
     pub expose: bool,
@@ -40,24 +51,15 @@ pub struct Application {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(deny_unknown_fields, untagged)]
-pub enum Bundle {
-    IaasBundle {
-        #[serde(alias = "services")]
-        applications: HashMap<String, Application>,
-        description: Option<String>,
-        #[serde(default)]
-        relations: Vec<Vec<String>>,
-        series: String,
-    },
-    CaasBundle {
-        #[serde(alias = "services")]
-        applications: HashMap<String, Application>,
-        bundle: BundleType,
-        description: Option<String>,
-        #[serde(default)]
-        relations: Vec<Vec<String>>,
-    },
+#[serde(deny_unknown_fields)]
+pub struct Bundle {
+    #[serde(alias = "services")]
+    pub applications: HashMap<String, Application>,
+    pub bundle: BundleType,
+    pub description: Option<String>,
+    #[serde(default)]
+    pub relations: Vec<Vec<String>>,
+    pub series: Option<String>,
 }
 
 impl Bundle {
@@ -68,19 +70,5 @@ impl Bundle {
     pub fn save<P: Into<PathBuf>>(&self, path: P) -> Result<(), JujuError> {
         write(path.into(), to_vec(self)?)?;
         Ok(())
-    }
-
-    pub fn applications(&self) -> &HashMap<String, Application> {
-        match self {
-            Bundle::IaasBundle { applications, .. } => applications,
-            Bundle::CaasBundle { applications, .. } => applications,
-        }
-    }
-
-    pub fn applications_mut(&mut self) -> &mut HashMap<String, Application> {
-        match self {
-            Bundle::IaasBundle { applications, .. } => applications,
-            Bundle::CaasBundle { applications, .. } => applications,
-        }
     }
 }

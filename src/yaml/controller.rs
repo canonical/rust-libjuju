@@ -35,6 +35,8 @@ pub struct Controller {
     #[serde(default)]
     pub machine_count: u32,
     pub region: String,
+    #[serde(rename = "type")]
+    pub kind: Option<String>,
     pub uuid: String,
 }
 

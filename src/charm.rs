@@ -23,6 +23,15 @@ pub struct Interface {
     pub interface: String,
 }
 
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Storage {
+    #[serde(rename = "type")]
+    kind: String,
+    location: String,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields, rename_all = "kebab-case")]
 pub struct Metadata {
@@ -39,6 +48,8 @@ pub struct Metadata {
     pub requires: HashMap<String, Interface>,
     #[serde(default)]
     pub provides: HashMap<String, Interface>,
+    #[serde(default)]
+    pub storage: HashMap<String, Storage>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
