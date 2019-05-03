@@ -1,0 +1,16 @@
+[package]
+name = "juju-rs"
+version = "0.1.0"
+authors = ["Kenneth Koski <kennethkoski@gmail.com>"]
+edition = "2018"
+
+[lib]
+name = "juju"
+path = "src/lib.rs"
+
+[dependencies]
+dirs = "1.0"
+failure = "0.1"
+serde = "1.0"
+serde_derive = "1.0"
+serde_yaml = "0.8"

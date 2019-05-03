@@ -1,0 +1,21 @@
+[package]
+name = "juju-helpers"
+version = "0.1.0"
+authors = ["Kenneth Koski <kennethkoski@gmail.com>"]
+edition = "2018"
+
+[[bin]]
+name = "juju-bundle"
+path = "src/juju_bundle.rs"
+
+[[bin]]
+name = "juju-kubectl"
+path = "src/juju_kubectl.rs"
+
+[dependencies]
+clap = "2.32"
+failure = "0.1"
+juju-rs = { path = "../lib" }
+rayon = "1.0"
+structopt = "0.2"
+tempfile = "3.0"

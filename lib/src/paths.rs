@@ -1,8 +1,11 @@
+//! Presents functions related to locating Juju directories
+
 use std::env;
 use std::path::PathBuf;
 
 use dirs::home_dir;
 
+/// Get a dir from an env var and subpath
 fn dir_from_env(env_var: &str, suffix: PathBuf) -> PathBuf {
     env::var(env_var).map(PathBuf::from).unwrap_or_else(|_| {
         home_dir()

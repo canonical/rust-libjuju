@@ -1,3 +1,5 @@
+//! Parsing for a charm's source directory
+
 use std::collections::HashMap;
 use std::fs::read;
 use std::path::PathBuf;
@@ -22,7 +24,6 @@ pub struct Resource {
 pub struct Interface {
     pub interface: String,
 }
-
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -57,6 +58,11 @@ pub struct Metadata {
 pub enum ConfigOption {
     String {
         default: String,
+        description: String,
+    },
+    #[serde(rename = "int")]
+    Integer {
+        default: i64,
         description: String,
     },
     Boolean {

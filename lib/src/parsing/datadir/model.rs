@@ -10,8 +10,14 @@ use crate::paths::juju_data_dir;
 #[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields, tag = "type", rename_all = "kebab-case")]
 pub enum Model {
-    Iaas { uuid: String, branch: Option<String> },
-    Caas { uuid: String, branch: Option<String> },
+    Iaas {
+        uuid: String,
+        branch: Option<String>,
+    },
+    Caas {
+        uuid: String,
+        branch: Option<String>,
+    },
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -60,7 +66,7 @@ impl ModelYaml {
             None => {
                 let split = models
                     .current_model
-                    .splitn(2, "/")
+                    .splitn(2, '/')
                     .map(String::from)
                     .collect::<Vec<_>>();
 

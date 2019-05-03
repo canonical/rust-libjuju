@@ -1,3 +1,5 @@
+//! Errors for juju-rs
+
 use std::io::Error as IOError;
 
 use failure::Fail;
@@ -22,6 +24,9 @@ pub enum JujuError {
 
     #[fail(display = "Could not determine model for controller {}", _0)]
     UnknownModel(String),
+
+    #[fail(display = "Bundle doesn't have application(s) {}", _0)]
+    ApplicationNotFound(String),
 }
 
 impl From<IOError> for JujuError {
