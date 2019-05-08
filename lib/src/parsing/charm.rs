@@ -25,12 +25,85 @@ pub struct Interface {
     pub interface: String,
 }
 
+mod storage_range {
+    use serde::{self, Deserialize, Serializer, Deserializer};
+    use super::Range;
+
+    pub fn serialize<S>(
+        range: &Range,
+        serializer: S,
+    ) -> Result<S::Ok, S::Error>
+        where
+            S: Serializer,
+    {
+        serializer.serialize_str(&format!("{:?}", range))
+    }
+    pub fn deserialize<'de, D>(
+        deserializer: D,
+    ) -> Result<Range, D::Error>
+        where
+            D: Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        let split: Vec<_> = s.splitn(2, '-').collect();
+
+        match split.len() {
+            1 => Ok(Range::Count(split[0].parse().unwrap())),
+            2 => Ok(Range::Range {
+                min: split[0].parse().unwrap(),
+                max: Some(split[1].parse().unwrap()),
+            }),
+            _ => unreachable!(),
+        }
+    }
+}
+
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum Range {
+    Count(u32),
+    Range {
+        min: u32,
+        max: Option<u32>,
+    }
+}
+
+impl Default for Range {
+    fn default() -> Self {
+        Range::Range { min: 0, max: None }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(deny_unknown_fields)]
+pub struct StorageMultiple {
+    #[serde(with = "storage_range")]
+    range: Range,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields, rename_all = "kebab-case")]
+pub enum StorageType {
+    Filesystem,
+    Block,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields, tag = "type", rename_all = "kebab-case")]
 pub struct Storage {
+    #[serde(default)]
+    description: String,
     #[serde(rename = "type")]
-    kind: String,
+    kind: StorageType,
     location: String,
+    #[serde(default)]
+    minimum_size: String,
+    #[serde(default)]
+    multiple: StorageMultiple,
+    #[serde(default)]
+    read_only: bool,
+    #[serde(default)]
+    shared: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
