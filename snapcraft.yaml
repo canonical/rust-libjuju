@@ -19,6 +19,7 @@ apps:
 parts:
   juju-helpers:
     source: .
+    source-subdir: plugins
     plugin: rust
     # https://forum.snapcraft.io/t/issue-with-rebuilding-a-rust-snap/10830
     override-build: |
