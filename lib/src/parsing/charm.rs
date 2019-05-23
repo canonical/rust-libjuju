@@ -26,23 +26,18 @@ pub struct Interface {
 }
 
 mod storage_range {
-    use serde::{self, Deserialize, Serializer, Deserializer};
     use super::Range;
+    use serde::{self, Deserialize, Deserializer, Serializer};
 
-    pub fn serialize<S>(
-        range: &Range,
-        serializer: S,
-    ) -> Result<S::Ok, S::Error>
-        where
-            S: Serializer,
+    pub fn serialize<S>(range: &Range, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
     {
         serializer.serialize_str(&format!("{:?}", range))
     }
-    pub fn deserialize<'de, D>(
-        deserializer: D,
-    ) -> Result<Range, D::Error>
-        where
-            D: Deserializer<'de>,
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<Range, D::Error>
+    where
+        D: Deserializer<'de>,
     {
         let s = String::deserialize(deserializer)?;
         let split: Vec<_> = s.splitn(2, '-').collect();
@@ -58,14 +53,10 @@ mod storage_range {
     }
 }
 
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Range {
     Count(u32),
-    Range {
-        min: u32,
-        max: Option<u32>,
-    }
+    Range { min: u32, max: Option<u32> },
 }
 
 impl Default for Range {
