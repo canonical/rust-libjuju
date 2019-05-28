@@ -12,9 +12,11 @@ confinement: classic
 
 apps:
   juju-bundle:
-    command: juju-bundle
+    command: ./bin/juju-bundle
+    adapter: none
   juju-kubectl:
-    command: juju-kubectl
+    command: ./bin/juju-kubectl
+    adapter: none
 
 parts:
   juju-helpers:
