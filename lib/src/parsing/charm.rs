@@ -50,20 +50,30 @@ pub enum ResourceType {
     Url,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(deny_unknown_fields, rename_all = "kebab-case")]
+pub enum RelationScope {
+    Global,
+    Container,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields, rename_all = "kebab-case")]
 pub struct Resource {
     #[serde(rename = "type")]
     pub kind: ResourceType,
     pub description: String,
+    #[serde(default)]
     pub auto_fetch: bool,
     pub upstream_source: Option<String>,
+    pub filename: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields, rename_all = "kebab-case")]
 pub struct Interface {
     pub interface: String,
+    pub scope: Option<RelationScope>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -114,39 +124,66 @@ pub struct Storage {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields, rename_all = "kebab-case")]
 pub struct Metadata {
+    /// Machine-friendly name of the charm
     pub name: String,
+
+    /// Human-friendly name of the charm
     pub display_name: Option<String>,
+
+    /// Tweetable summary of the charm
     pub summary: String,
-    pub maintainers: Vec<String>,
+
+    /// Long-form description of the charm
     pub description: String,
+
+    /// List of charm maintainers
+    ///
+    /// Expected format is `"Full Name <email@example.com>"`
+    pub maintainers: Vec<String>,
+
+    /// List of arbitrary topic tags for the charm
     pub tags: Vec<String>,
+
+    /// Which OS this charm expects
     pub series: Vec<String>,
+
+    /// Resources for the charm
     #[serde(default)]
     pub resources: HashMap<String, Resource>,
+
+    /// Which other charms this charm requires a relation to in order to run
     #[serde(default)]
     pub requires: HashMap<String, Interface>,
+
+    /// Which types of relations this charm provides
     #[serde(default)]
     pub provides: HashMap<String, Interface>,
+
+    /// Storage configuration for the charm
     #[serde(default)]
     pub storage: HashMap<String, Storage>,
+
+    /// Whether or not this charm is subordinate to another charm
+    #[serde(default)]
+    pub subordinate: bool,
 }
 
+/// Config option as defined in config.yaml
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields, tag = "type", rename_all = "kebab-case")]
 pub enum ConfigOption {
+    /// String config option
     String {
         default: String,
         description: String,
     },
+
+    /// Integer config option
     #[serde(rename = "int")]
-    Integer {
-        default: i64,
-        description: String,
-    },
-    Boolean {
-        default: bool,
-        description: String,
-    },
+    Integer { default: i64, description: String },
+
+    /// Boolean config option
+    Boolean { default: bool, description: String },
 }
 
 /// A charm's config.yaml file
@@ -229,13 +266,18 @@ impl Charm {
 
         let resources = self.resources_with_defaults(resources)?;
 
-        let mut args = vec!["push".to_string(), build_dir, cs_url.to_string()];
-        args.extend(
-            resources
-                .iter()
-                .flat_map(|(k, v)| vec![String::from("--resource"), format!("{}={}", k, v)]),
-        );
+        let args = vec!["push", &build_dir, cs_url]
+            .into_iter()
+            .map(String::from)
+            .chain(
+                resources
+                    .iter()
+                    .flat_map(|(k, v)| vec![String::from("--resource"), format!("{}={}", k, v)]),
+            )
+            .collect::<Vec<_>>();
 
+        // Ensure all oci-image resources are pulled locally into Docker,
+        // so that we can push them into the charm store
         for (name, value) in resources {
             let res = self.metadata.resources.get(&name).expect("Must exist!");
 
@@ -246,13 +288,7 @@ impl Charm {
             cmd::run("docker", &["pull", &value])?;
         }
 
-        let mut output = cmd::get_output(
-            "charm",
-            args.iter()
-                .map(std::ops::Deref::deref)
-                .collect::<Vec<_>>()
-                .as_ref(),
-        )?;
+        let mut output = cmd::get_output("charm", &args)?;
 
         // The command output is valid YAML that includes the URL that we care about, but
         // also includes output from `docker push`, so just chop out the first line that's
@@ -286,28 +322,18 @@ impl Charm {
             &["list-resources", rev_url, "--format", "yaml"],
         )?)?;
 
-        let mut release_args = vec![
-            "release".to_string(),
-            rev_url.to_string(),
-            "--channel".to_string(),
-            to.to_string(),
-        ];
+        let release_args = vec!["release", rev_url, "--channel", to.into()]
+            .into_iter()
+            .map(String::from)
+            .chain(resources.iter().flat_map(|r| {
+                vec![
+                    "--resource".to_string(),
+                    format!("{}-{}", r["name"], r["revision"]),
+                ]
+            }))
+            .collect::<Vec<_>>();
 
-        release_args.extend(resources.iter().flat_map(|r| {
-            vec![
-                String::from("--resource"),
-                format!("{}-{}", r["name"], r["revision"]),
-            ]
-        }));
-
-        cmd::run(
-            "charm",
-            release_args
-                .iter()
-                .map(std::ops::Deref::deref)
-                .collect::<Vec<_>>()
-                .as_ref(),
-        )
+        cmd::run("charm", &release_args)
     }
 
     /// Merge default resources with resources given in e.g. a bundle.yaml

@@ -1,0 +1,14 @@
+bundle: kubernetes
+applications:
+  foo:
+    charm: cs:foo
+    source: ./foo
+    scale: 1
+    annotations:
+      gui-x: '0'
+      gui-y: '0'
+  bar:
+    charm: cs:bar
+    scale: 1
+relations:
+  - [foo, bar]

@@ -22,3 +22,15 @@ impl ToString for Channel {
         .into()
     }
 }
+
+impl From<Channel> for &str {
+    fn from(ch: Channel) -> &'static str {
+        match ch {
+            Channel::Unpublished => "unpublished",
+            Channel::Edge => "edge",
+            Channel::Beta => "beta",
+            Channel::Candidate => "candidate",
+            Channel::Stable => "stable",
+        }
+    }
+}

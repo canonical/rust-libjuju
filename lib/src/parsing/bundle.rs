@@ -10,9 +10,10 @@ use serde_yaml::{from_slice, to_vec};
 use crate::channel::Channel;
 use crate::cmd;
 use crate::error::JujuError;
+use crate::series::Series;
 
 /// Represents a YAML value that doesn't have a pre-determined type
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(untagged)]
 pub enum Value {
     String(String),
@@ -21,62 +22,18 @@ pub enum Value {
     None,
 }
 
-/// Type of bundle
-///
-/// Currently only `kubernetes` is allowed as a value, as any other
-/// types should actually be put under `series` instead of `bundle`.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(deny_unknown_fields, rename_all = "kebab-case")]
-pub enum BundleType {
-    Kubernetes,
-}
-
-/// Type of bundle
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(deny_unknown_fields, rename_all = "kebab-case")]
-pub enum Series {
-    Oneiric,
-    Precise,
-    Quantal,
-    Raring,
-    Saucy,
-    Trusty,
-    Utopic,
-    Vivid,
-    Wily,
-    Xenial,
-    Yakkety,
-    Zesty,
-    Artful,
-    Bionic,
-    Cosmic,
-    Disco,
-    Win2012hvr2,
-    Win2012hv,
-    Win2012r2,
-    Win2012,
-    Win7,
-    Win8,
-    Win81,
-    Win10,
-    Win2016,
-    Win2016hv,
-    Win2016nano,
-    Centos7,
-}
-
 /// Arbitrary annotations for an application
 ///
 /// TODO: These seem to be the only ones in use, are there any others?
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields, rename_all = "kebab-case")]
 pub struct Annotations {
-    gui_x: String,
-    gui_y: String,
+    pub gui_x: String,
+    pub gui_y: String,
 }
 
 /// An application within the bundle
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct Application {
     /// Arbitrary annotations intepreted by things other than Juju itself
@@ -127,18 +84,12 @@ pub struct Application {
 }
 
 /// Represents a `bundle.yaml` file
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct Bundle {
     /// The applications in the bundle
     #[serde(alias = "services")]
     pub applications: HashMap<String, Application>,
-
-    /// Which type of bundle this is
-    ///
-    /// Currently only `kubernetes` is accepted. For other bundle types,
-    /// the value must be put under `series:`.
-    pub bundle: BundleType,
 
     /// Long-form description of the bundle
     pub description: Option<String>,
@@ -150,7 +101,8 @@ pub struct Bundle {
     /// Which OS series to use for this bundle
     ///
     /// Mutually exclusive with `bundle`
-    pub series: Option<Series>,
+    #[serde(alias = "bundle")]
+    pub series: Series,
 }
 
 impl Bundle {
@@ -205,9 +157,6 @@ impl Bundle {
     }
 
     pub fn release(&self, bundle_url: &str, to: Channel) -> Result<(), JujuError> {
-        cmd::run(
-            "charm",
-            &["release", "--channel", &to.to_string(), bundle_url],
-        )
+        cmd::run("charm", &["release", "--channel", to.into(), bundle_url])
     }
 }
