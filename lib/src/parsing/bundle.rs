@@ -7,6 +7,8 @@ use std::path::PathBuf;
 use serde_derive::{Deserialize, Serialize};
 use serde_yaml::{from_slice, to_vec};
 
+use crate::channel::Channel;
+use crate::cmd;
 use crate::error::JujuError;
 
 /// Represents a YAML value that doesn't have a pre-determined type
@@ -194,5 +196,18 @@ impl Bundle {
         } else {
             Err(JujuError::ApplicationNotFound(diff.join(", ")))
         }
+    }
+
+    pub fn push(&self, bundle_path: &str, cs_url: &str) -> Result<String, JujuError> {
+        let output: HashMap<String, String> =
+            from_slice(&cmd::get_output("charm", &["push", bundle_path, cs_url])?)?;
+        Ok(output["url"].clone())
+    }
+
+    pub fn release(&self, bundle_url: &str, to: Channel) -> Result<(), JujuError> {
+        cmd::run(
+            "charm",
+            &["release", "--channel", &to.to_string(), bundle_url],
+        )
     }
 }

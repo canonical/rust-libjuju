@@ -27,6 +27,12 @@ pub enum JujuError {
 
     #[fail(display = "Bundle doesn't have application(s) {}", _0)]
     ApplicationNotFound(String),
+
+    #[fail(display = "Resource {} not found for {}", _0, _1)]
+    ResourceNotFound(String, String),
+
+    #[fail(display = "Error running subcommand `{}`: `{}`", _0, _1)]
+    SubcommandError(String, String),
 }
 
 impl From<IOError> for JujuError {

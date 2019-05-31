@@ -1,14 +1,16 @@
 //! Juju plugin for interacting with a bundle
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
+use std::fs;
 use std::path::PathBuf;
 use std::process::Command;
 
 use failure::{format_err, Error, ResultExt};
 use rayon::prelude::*;
 use structopt::{self, clap::AppSettings, StructOpt};
-use tempfile::NamedTempFile;
+use tempfile::{NamedTempFile, TempDir};
 
+use juju::channel::Channel;
 use juju::parsing::bundle::{Application, Bundle};
 use juju::parsing::charm::Charm;
 use juju::paths;
@@ -45,7 +47,7 @@ struct DeployConfig {
 #[derive(StructOpt, Debug)]
 struct RemoveConfig {
     #[structopt(short = "a", long = "app")]
-    #[structopt(help = "Select particular apps to deploy")]
+    #[structopt(help = "Select particular apps to remove")]
     apps: Vec<String>,
 
     #[structopt(short = "b", long = "bundle", default_value = "bundle.yaml")]
@@ -53,7 +55,19 @@ struct RemoveConfig {
     bundle: String,
 }
 
-/// Interact with a bundle.
+/// CLI arguments for the `publish` subcommand.
+#[derive(StructOpt, Debug)]
+struct PublishConfig {
+    #[structopt(short = "b", long = "bundle", default_value = "bundle.yaml")]
+    #[structopt(help = "The bundle file to publish")]
+    bundle: String,
+
+    #[structopt(long = "url")]
+    #[structopt(help = "The charm store URL for the bundle")]
+    cs_url: String,
+}
+
+/// Interact with a bundle and the charms contained therein.
 #[derive(StructOpt, Debug)]
 #[structopt(raw(setting = "AppSettings::TrailingVarArg"))]
 #[structopt(raw(setting = "AppSettings::SubcommandRequiredElseHelp"))]
@@ -71,6 +85,13 @@ enum Config {
     /// included if both apps are selected.
     #[structopt(name = "remove")]
     Remove(RemoveConfig),
+
+    /// Publishes a bundle and its charms to the charm store
+    ///
+    /// Publishes them to the edge channel. To migrate the bundle
+    /// and its charms to other channels, use `juju bundle promote`.
+    #[structopt(name = "publish")]
+    Publish(PublishConfig),
 }
 
 /// Run `deploy` subcommand
@@ -97,15 +118,10 @@ fn deploy(c: DeployConfig) -> Result<(), Error> {
         })
         .collect();
 
-    // Convert a `Vec<Result<T, E>>` into `Result<Vec<T>, E>` so that any errors
-    // can fail entire process, and then `Vec<T>` can be unzipped and destructured into
-    // `Vec<NamedTempFile>` and `HashMap<String, Application>`.
-    type AppKVPairs = (String, Application);
-    let mapped: Result<Vec<(NamedTempFile, AppKVPairs)>, Error> = applications
+    let mapped: Result<HashMap<String, Application>, Error> = applications
         .par_iter()
         .map(|(name, application)| {
             let mut new_application = application.clone();
-            let temp_file = NamedTempFile::new()?;
 
             new_application.charm = match (c.build, &application.charm, &application.source) {
                 // If a charm URL was defined and either the `--build` flag wasn't passed or
@@ -138,22 +154,7 @@ fn deploy(c: DeployConfig) -> Result<(), Error> {
                     let charm = Charm::load(&charm_path)
                         .with_context(|_| charm_path.display().to_string())?;
 
-                    let exit_status = Command::new("charm")
-                        .args(&["build", &charm_path.to_string_lossy()])
-                        .args(&[
-                            "--cache-dir",
-                            &paths::charm_cache_dir(source).to_string_lossy(),
-                        ])
-                        .spawn()?
-                        .wait()?;
-
-                    if !exit_status.success() {
-                        return Err(format_err!(
-                            "charm build encountered an error while building {}: {}",
-                            name,
-                            exit_status.to_string()
-                        ));
-                    }
+                    charm.build()?;
 
                     for (name, resource) in charm.metadata.resources {
                         if let Some(source) = resource.upstream_source {
@@ -170,13 +171,11 @@ fn deploy(c: DeployConfig) -> Result<(), Error> {
                 }
             };
 
-            Ok((temp_file, (name.clone(), new_application)))
+            Ok((name.clone(), new_application))
         })
         .collect();
 
-    let (temp_files, applications): (Vec<NamedTempFile>, _) = mapped?.into_iter().unzip();
-
-    bundle.applications = applications;
+    bundle.applications = mapped?;
 
     bundle.save(temp_bundle.path())?;
 
@@ -219,9 +218,6 @@ fn deploy(c: DeployConfig) -> Result<(), Error> {
         ));
     }
 
-    // Force temp files to stick around for deploy command
-    let _ = temp_files.len();
-
     Ok(())
 }
 
@@ -237,11 +233,102 @@ fn remove(c: RemoveConfig) -> Result<(), Error> {
     Ok(())
 }
 
-fn main() -> Result<(), Error> {
-    match Config::from_args() {
-        Config::Deploy(c) => deploy(c)?,
-        Config::Remove(c) => remove(c)?,
+/// Run `publish` subcommand
+fn publish(c: PublishConfig) -> Result<(), Error> {
+    let path = c.bundle.as_str();
+    let bundle = Bundle::load(path)?;
+
+    // Grab only the apps that we have both the source and a charm store
+    // URL for, as otherwise there's nothing to publish
+    let apps = bundle
+        .applications
+        .iter()
+        .filter_map(|(name, app)| {
+            if app.charm.is_some() && app.source.is_some() {
+                Some((name.clone(), app.clone()))
+            } else {
+                None
+            }
+        })
+        .collect::<Vec<_>>();
+
+    println!(
+        "Publishing {} apps:\n{}\n",
+        apps.len(),
+        apps.iter()
+            .cloned()
+            .map(|(n, _)| n)
+            .collect::<Vec<_>>()
+            .join("\n")
+    );
+
+    // Build each charm, upload it to the store, then promote that
+    // revision to edge. Return a list of the revision URLs, so that
+    // we can generate a bundle with those exact revisions to upload.
+    let revisions: Result<Vec<(&String, String)>, Error> = apps
+        .par_iter()
+        .map(|(name, app)| {
+            let source = app
+                .source
+                .as_ref()
+                .expect("Already asserted this must exist!");
+            let cs_url = app
+                .charm
+                .as_ref()
+                .expect("Already asserted this must exist!");
+
+            // If `source` starts with `.`, it's a relative path from the bundle we're
+            // deploying. Otherwise, look in `CHARM_SOURCE_DIR` for it.
+            let charm_path = if source.starts_with('.') {
+                PathBuf::from(path).parent().unwrap().join(source)
+            } else {
+                paths::charm_source_dir().join(source)
+            };
+
+            let charm =
+                Charm::load(&charm_path).with_context(|_| charm_path.display().to_string())?;
+
+            charm.build()?;
+            let rev_url = charm.push(cs_url, &app.resources)?;
+
+            charm.promote(&rev_url, Channel::Edge)?;
+            Ok((name, rev_url))
+        })
+        .collect();
+
+    // Make a copy of the bundle with exact revisions of each charm
+    let mut new_bundle = bundle.clone();
+
+    for (name, revision) in revisions? {
+        new_bundle
+            .applications
+            .get_mut(name)
+            .expect("App must exist!")
+            .charm = Some(revision);
     }
 
+    // Create a temp dir for the bundle to point `charm` at,
+    // since we don't want to modify the existing bundle.yaml file.
+    let dir = TempDir::new()?;
+    new_bundle.save(dir.path().join("bundle.yaml"))?;
+
+    // `charm push` expects this file to exist
+    fs::copy(
+        PathBuf::from(c.bundle).with_file_name("README.md"),
+        dir.path().join("README.md"),
+    )?;
+
+    let bundle_url = bundle.push(dir.path().to_string_lossy().as_ref(), &c.cs_url)?;
+
+    bundle.release(&bundle_url, Channel::Edge)?;
+
     Ok(())
+}
+
+fn main() -> Result<(), Error> {
+    match Config::from_args() {
+        Config::Deploy(c) => deploy(c),
+        Config::Remove(c) => remove(c),
+        Config::Publish(c) => publish(c),
+    }
 }
