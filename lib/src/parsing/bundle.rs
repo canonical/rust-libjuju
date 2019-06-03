@@ -33,7 +33,7 @@ pub struct Annotations {
 }
 
 /// An application within the bundle
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
 #[serde(deny_unknown_fields)]
 pub struct Application {
     /// Arbitrary annotations intepreted by things other than Juju itself

@@ -1,4 +1,5 @@
 bundle: kubernetes
+description: An awesome bundle
 applications:
   foo:
     charm: cs:foo

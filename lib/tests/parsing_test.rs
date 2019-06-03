@@ -18,27 +18,17 @@ fn parse_bundle() {
             }),
             source: Some("./foo".into()),
             charm: Some("cs:foo".into()),
-            config: Default::default(),
-            constraints: None,
-            expose: false,
-            options: Default::default(),
-            resources: Default::default(),
             scale: 1,
+            ..Default::default()
         },
     );
 
     applications.insert(
         "bar".to_string(),
         Application {
-            annotations: None,
-            source: None,
             charm: Some("cs:bar".into()),
-            config: Default::default(),
-            constraints: None,
-            expose: false,
-            options: Default::default(),
-            resources: Default::default(),
             scale: 1,
+            ..Default::default()
         },
     );
 
@@ -46,7 +36,7 @@ fn parse_bundle() {
         bundle,
         Bundle {
             applications,
-            description: None,
+            description: Some("An awesome bundle".to_string()),
             relations: vec![vec!["foo", "bar"]
                 .into_iter()
                 .map(String::from)
