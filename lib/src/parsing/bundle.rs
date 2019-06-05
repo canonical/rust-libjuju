@@ -91,18 +91,18 @@ pub struct Bundle {
     #[serde(alias = "services")]
     pub applications: HashMap<String, Application>,
 
+    /// Which OS series to use for this bundle
+    ///
+    /// Also accepts `Kubernetes` for CaaS charms
+    #[serde(alias = "series")]
+    pub bundle: Series,
+
     /// Long-form description of the bundle
     pub description: Option<String>,
 
     /// Pairs of application names that require a relation between them
     #[serde(default)]
     pub relations: Vec<Vec<String>>,
-
-    /// Which OS series to use for this bundle
-    ///
-    /// Mutually exclusive with `bundle`
-    #[serde(alias = "bundle")]
-    pub series: Series,
 }
 
 impl Bundle {
