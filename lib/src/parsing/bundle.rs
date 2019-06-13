@@ -93,9 +93,8 @@ pub struct Bundle {
 
     /// Which OS series to use for this bundle
     ///
-    /// Also accepts `Kubernetes` for CaaS charms
-    #[serde(alias = "series")]
-    pub bundle: Series,
+    /// Either this or `series` must be set
+    pub bundle: Option<Series>,
 
     /// Long-form description of the bundle
     pub description: Option<String>,
@@ -103,6 +102,11 @@ pub struct Bundle {
     /// Pairs of application names that require a relation between them
     #[serde(default)]
     pub relations: Vec<Vec<String>>,
+
+    /// Which OS series to use for this bundle
+    ///
+    /// Either this or `bundle` must be set
+    pub series: Option<Series>,
 }
 
 impl Bundle {

@@ -41,7 +41,8 @@ fn parse_bundle() {
                 .into_iter()
                 .map(String::from)
                 .collect::<Vec<_>>()],
-            bundle: Series::Kubernetes
+            bundle: Some(Series::Kubernetes),
+            series: None,
         }
     );
 }
