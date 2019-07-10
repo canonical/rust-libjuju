@@ -9,7 +9,7 @@ name = "juju"
 path = "src/lib.rs"
 
 [dependencies]
-dirs = "1.0"
+dirs = "2.0"
 ex = "0.1"
 failure = "0.1"
 reqwest = { version = "0.9", default-features = false, features = ["rustls-tls"] }

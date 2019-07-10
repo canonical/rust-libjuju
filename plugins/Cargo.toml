@@ -13,10 +13,10 @@ name = "juju-kubectl"
 path = "src/juju_kubectl.rs"
 
 [dependencies]
-clap = "2.32"
+clap = "2.33"
 ex = "0.1"
 failure = "0.1"
 juju-rs = { path = "../lib" }
-rayon = "1.0"
+rayon = "1.1"
 structopt = "0.2"
-tempfile = "3.0"
+tempfile = "3.1"
