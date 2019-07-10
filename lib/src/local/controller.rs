@@ -5,6 +5,7 @@ use ex::fs::read;
 use serde_derive::Deserialize;
 use serde_yaml::from_slice;
 
+use crate::cmd::get_output;
 use crate::error::JujuError;
 use crate::paths::juju_data_dir;
 
@@ -66,16 +67,16 @@ impl ControllerYaml {
     }
 
     pub fn substrate(&self, name: &str) -> Result<Substrate, JujuError> {
-        let yaml = Command::new("juju")
-            .args(&[
+        let yaml = get_output(
+            "juju",
+            &[
                 "status",
                 "-m",
                 &format!("{}:default", name),
                 "--format",
                 "yaml",
-            ])
-            .output()?
-            .stdout;
+            ],
+        )?;
 
         let controller = self.get(Some(name))?;
         let is_cdk = String::from_utf8_lossy(&yaml)

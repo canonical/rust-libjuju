@@ -7,6 +7,7 @@ use ex::fs::write;
 use failure::{bail, Error};
 use tempfile::NamedTempFile;
 
+use juju::cmd::{get_output, run};
 use juju::local::{controller::Substrate, ControllerYaml, ModelYaml};
 
 fn parse_model_name(model_name: &str) -> (Option<&str>, Option<&str>) {
@@ -59,31 +60,33 @@ fn main() -> Result<(), Error> {
 
     match controllers.substrate(&controller_name)? {
         Substrate::MicroK8s => {
-            let config = Command::new("microk8s.config").output()?;
-            write(kubecfg.path(), config.stdout)?;
+            let output = get_output("microk8s.config", &[""])?;
+            write(kubecfg.path(), output)?;
         }
         Substrate::CDK => {
-            Command::new("juju")
-                .args(&[
+            run(
+                "juju",
+                &[
                     "scp",
                     "-m",
                     &format!("{}:default", controller_name),
                     "kubernetes-master/0:~/config",
                     path,
-                ])
-                .spawn()?
-                .wait()?;
+                ],
+            );
         }
         Substrate::Unknown => {
             bail!("Couldn't determine cloud substrate.");
         }
     }
 
-    let exit_status = Command::new("kubectl")
-        .args(&["--kubeconfig", path])
-        .args(&kubectl_args)
-        .spawn()?
-        .wait()?;
+    run(
+        "kubectl",
+        &vec!["--kubeconfig", path]
+            .into_iter()
+            .chain(kubectl_args.into_iter())
+            .collect::<Vec<_>>(),
+    )?;
 
-    exit(exit_status.code().unwrap_or(1))
+    Ok(())
 }

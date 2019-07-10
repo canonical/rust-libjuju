@@ -3,7 +3,12 @@ use std::ffi::OsStr;
 use std::process::Command;
 
 pub fn run<S: AsRef<OsStr>>(cmd: &str, args: &[S]) -> Result<(), JujuError> {
-    let status = Command::new(cmd).args(args).spawn()?.wait()?;
+    let status = Command::new(cmd)
+        .args(args)
+        .spawn()
+        .map_err(|err| JujuError::SubcommandError(cmd.to_string(), err.to_string()))?
+        .wait()
+        .map_err(|err| JujuError::SubcommandError(cmd.to_string(), err.to_string()))?;
 
     if status.success() {
         Ok(())
@@ -23,7 +28,10 @@ pub fn run<S: AsRef<OsStr>>(cmd: &str, args: &[S]) -> Result<(), JujuError> {
 }
 
 pub fn get_output<S: AsRef<OsStr>>(cmd: &str, args: &[S]) -> Result<Vec<u8>, JujuError> {
-    let output = Command::new(cmd).args(args).output()?;
+    let output = Command::new(cmd)
+        .args(args)
+        .output()
+        .map_err(|err| JujuError::SubcommandError(cmd.to_string(), err.to_string()))?;
 
     if output.status.success() {
         Ok(output.stdout)
