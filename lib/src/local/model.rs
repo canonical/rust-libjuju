@@ -1,6 +1,6 @@
 use std::collections::HashMap;
-use std::fs::read;
 
+use ex::fs::read;
 use serde_derive::Deserialize;
 use serde_yaml::from_slice;
 

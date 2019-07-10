@@ -1,16 +1,18 @@
 //! Parsing for bundle.yaml files
 
 use std::collections::{HashMap, HashSet};
-use std::fs::{read, write};
 use std::path::PathBuf;
 
+use ex::fs::{read, write};
+use reqwest;
 use serde_derive::{Deserialize, Serialize};
-use serde_yaml::{from_slice, to_vec};
+use serde_yaml::{from_slice, from_str, to_vec};
 
 use crate::channel::Channel;
 use crate::cmd;
 use crate::error::JujuError;
 use crate::series::Series;
+use crate::store::Resource;
 
 /// Represents a YAML value that doesn't have a pre-determined type
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -83,6 +85,34 @@ pub struct Application {
     pub scale: u32,
 }
 
+impl Application {
+    pub fn release(&self, to: Channel) -> Result<(), JujuError> {
+        match &self.charm {
+            Some(charm) => {
+                let url = format!(
+                    "https://api.jujucharms.com/charmstore/v5/{}/meta/resources",
+                    &charm[3..]
+                );
+
+                let response: Vec<Resource> = reqwest::get(&url).unwrap().json().unwrap();
+
+                let args = vec!["release", "--channel", to.into(), charm]
+                    .into_iter()
+                    .map(String::from)
+                    .chain(
+                        response
+                            .iter()
+                            .map(|res| format!("--resource={}-{}", res.name, res.revision)),
+                    )
+                    .collect::<Vec<_>>();
+
+                cmd::run("charm", &args)
+            }
+            None => Err(JujuError::ApplicationNotFound("No charm URL set!".into())),
+        }
+    }
+}
+
 /// Represents a `bundle.yaml` file
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
@@ -113,6 +143,27 @@ impl Bundle {
     /// Load a bundle from the given path
     pub fn load<P: Into<PathBuf>>(path: P) -> Result<Self, JujuError> {
         Ok(from_slice(&read(path.into())?)?)
+    }
+
+    /// Load a bundle from the charm store
+    ///
+    /// TODO: Turn this into a more general charm store client
+    pub fn load_from_store(name: &str, channel: Channel) -> Result<(u32, Self), JujuError> {
+        let base_url = format!("https://api.jujucharms.com/charmstore/v5/bundle/{}", name);
+        let rev_url = format!(
+            "{}/meta/id-revision/?channel={}",
+            base_url,
+            channel.to_string()
+        );
+
+        let response: HashMap<String, u32> = reqwest::get(&rev_url).unwrap().json().unwrap();
+
+        let revision = response["Revision"];
+
+        let bundle_url = format!("{}-{}/archive/bundle.yaml", base_url, revision);
+        let response = reqwest::get(&bundle_url)?.text().unwrap();
+
+        Ok((revision, from_str(&response)?))
     }
 
     /// Save this bundle to the given path

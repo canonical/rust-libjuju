@@ -1,13 +1,13 @@
 //! Juju plugin for running `kubectl` against the current model
 
-use std::fs::write;
 use std::process::{exit, Command};
 
 use clap::{clap_app, crate_authors, crate_description, crate_version};
+use ex::fs::write;
 use failure::{bail, Error};
 use tempfile::NamedTempFile;
 
-use juju::parsing::datadir::{controller::Substrate, ControllerYaml, ModelYaml};
+use juju::local::{controller::Substrate, ControllerYaml, ModelYaml};
 
 fn parse_model_name(model_name: &str) -> (Option<&str>, Option<&str>) {
     if model_name.is_empty() {
@@ -60,7 +60,6 @@ fn main() -> Result<(), Error> {
     match controllers.substrate(&controller_name)? {
         Substrate::MicroK8s => {
             let config = Command::new("microk8s.config").output()?;
-
             write(kubecfg.path(), config.stdout)?;
         }
         Substrate::CDK => {

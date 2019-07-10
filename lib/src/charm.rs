@@ -1,9 +1,9 @@
 //! Parsing for a charm's source directory
 
 use std::collections::HashMap;
-use std::fs::read;
 use std::path::PathBuf;
 
+use ex::fs::read;
 use serde_derive::{Deserialize, Serialize};
 use serde_yaml::from_slice;
 
@@ -14,8 +14,9 @@ use crate::paths;
 
 /// Helper for parsing storage ranges
 mod storage_range {
-    use super::Range;
     use serde::{self, Deserialize, Deserializer, Serializer};
+
+    use super::Range;
 
     pub fn serialize<S>(range: &Range, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -241,14 +242,14 @@ impl Charm {
     }
 
     /// Build the charm from its source directory
-    pub fn build(&self) -> Result<(), JujuError> {
+    pub fn build(&self, name: &str) -> Result<(), JujuError> {
         cmd::run(
             "charm",
             &[
                 "build",
                 &self.source.to_string_lossy(),
                 "--cache-dir",
-                &paths::charm_cache_dir(&self.metadata.name).to_string_lossy(),
+                &paths::charm_cache_dir(name).to_string_lossy(),
             ],
         )
     }

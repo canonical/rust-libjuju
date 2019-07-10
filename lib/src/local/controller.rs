@@ -1,7 +1,7 @@
 use std::collections::HashMap;
-use std::fs::read;
 use std::process::Command;
 
+use ex::fs::read;
 use serde_derive::Deserialize;
 use serde_yaml::from_slice;
 

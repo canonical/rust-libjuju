@@ -1,6 +1,8 @@
 use serde_derive::{Deserialize, Serialize};
+use serde_yaml::{from_slice, Error};
+use std::str::FromStr;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 #[serde(deny_unknown_fields, rename_all = "kebab-case")]
 pub enum Channel {
     Unpublished,
@@ -32,5 +34,13 @@ impl From<Channel> for &str {
             Channel::Candidate => "candidate",
             Channel::Stable => "stable",
         }
+    }
+}
+
+impl FromStr for Channel {
+    type Err = Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        from_slice(s.as_bytes())
     }
 }

@@ -1,18 +1,18 @@
 //! Juju plugin for interacting with a bundle
 
 use std::collections::{HashMap, HashSet};
-use std::fs;
 use std::path::PathBuf;
 use std::process::Command;
 
+use ex::fs;
 use failure::{format_err, Error, ResultExt};
 use rayon::prelude::*;
 use structopt::{self, clap::AppSettings, StructOpt};
 use tempfile::{NamedTempFile, TempDir};
 
+use juju::bundle::{Application, Bundle};
 use juju::channel::Channel;
-use juju::parsing::bundle::{Application, Bundle};
-use juju::parsing::charm::Charm;
+use juju::charm::Charm;
 use juju::paths;
 
 /// CLI arguments for the `deploy` subcommand.
@@ -67,6 +67,22 @@ struct PublishConfig {
     cs_url: String,
 }
 
+/// CLI arguments for the `publish` subcommand.
+#[derive(StructOpt, Debug)]
+struct PromoteConfig {
+    #[structopt(short = "b", long = "bundle")]
+    #[structopt(help = "The bundle file to promote")]
+    bundle: String,
+
+    #[structopt(long = "from")]
+    #[structopt(help = "The bundle channel to promote from")]
+    from: Channel,
+
+    #[structopt(long = "to")]
+    #[structopt(help = "The bundle channel to promote to")]
+    to: Channel,
+}
+
 /// Interact with a bundle and the charms contained therein.
 #[derive(StructOpt, Debug)]
 #[structopt(raw(setting = "AppSettings::TrailingVarArg"))]
@@ -92,6 +108,10 @@ enum Config {
     /// and its charms to other channels, use `juju bundle promote`.
     #[structopt(name = "publish")]
     Publish(PublishConfig),
+
+    /// Promotes a bundle and its charms from one channel to another
+    #[structopt(name = "promote")]
+    Promote(PromoteConfig),
 }
 
 /// Run `deploy` subcommand
@@ -154,7 +174,7 @@ fn deploy(c: DeployConfig) -> Result<(), Error> {
                     let charm = Charm::load(&charm_path)
                         .with_context(|_| charm_path.display().to_string())?;
 
-                    charm.build()?;
+                    charm.build(name)?;
 
                     for (name, resource) in charm.metadata.resources {
                         if let Some(source) = resource.upstream_source {
@@ -288,7 +308,7 @@ fn publish(c: PublishConfig) -> Result<(), Error> {
             let charm =
                 Charm::load(&charm_path).with_context(|_| charm_path.display().to_string())?;
 
-            charm.build()?;
+            charm.build(name)?;
             let rev_url = charm.push(cs_url, &app.resources)?;
 
             charm.promote(&rev_url, Channel::Edge)?;
@@ -326,10 +346,25 @@ fn publish(c: PublishConfig) -> Result<(), Error> {
     Ok(())
 }
 
+/// Run `promote` subcommand
+fn promote(c: PromoteConfig) -> Result<(), Error> {
+    let (revision, bundle) = Bundle::load_from_store(&c.bundle, c.from)?;
+
+    bundle.release(&format!("{}-{}", c.bundle, revision), c.to)?;
+
+    for (name, app) in bundle.applications {
+        println!("Promoting {} to {:?}.", name, c.to);
+        app.release(c.to)?;
+    }
+
+    Ok(())
+}
+
 fn main() -> Result<(), Error> {
     match Config::from_args() {
         Config::Deploy(c) => deploy(c),
         Config::Remove(c) => remove(c),
         Config::Publish(c) => publish(c),
+        Config::Promote(c) => promote(c),
     }
 }

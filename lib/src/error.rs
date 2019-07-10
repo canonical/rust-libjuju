@@ -2,7 +2,9 @@
 
 use std::io::Error as IOError;
 
+use ex::io::Error as ExIOError;
 use failure::Fail;
+use reqwest::Error as ReqwestError;
 use serde_yaml::Error as YamlError;
 
 #[derive(Debug, Fail)]
@@ -10,8 +12,11 @@ pub enum JujuError {
     #[fail(display = "I/O error: {}", _0)]
     IOError(#[fail(cause)] IOError),
 
+    #[fail(display = "I/O error: {}", _0)]
+    ExIOError(#[fail(cause)] ExIOError),
+
     #[fail(display = "YAML Error: {}", _0)]
-    YamlError(YamlError),
+    YamlError(#[fail(cause)] YamlError),
 
     #[fail(display = "Failed to deserialize: {}", _0)]
     DeserError(String),
@@ -33,6 +38,9 @@ pub enum JujuError {
 
     #[fail(display = "Error running subcommand `{}`: `{}`", _0, _1)]
     SubcommandError(String, String),
+
+    #[fail(display = "Error while talking to network: {}", _0)]
+    NetworkError(#[fail(cause)] ReqwestError),
 }
 
 impl From<IOError> for JujuError {
@@ -41,8 +49,20 @@ impl From<IOError> for JujuError {
     }
 }
 
+impl From<ExIOError> for JujuError {
+    fn from(err: ExIOError) -> Self {
+        JujuError::ExIOError(err)
+    }
+}
+
 impl From<YamlError> for JujuError {
     fn from(err: YamlError) -> Self {
         JujuError::YamlError(err)
+    }
+}
+
+impl From<ReqwestError> for JujuError {
+    fn from(err: ReqwestError) -> Self {
+        JujuError::NetworkError(err)
     }
 }
