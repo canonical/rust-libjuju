@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
 
-use juju::parsing::bundle::{Annotations, Application, Bundle};
+use juju::bundle::{Annotations, Application, Bundle};
 use juju::series::Series;
 
 #[test]
