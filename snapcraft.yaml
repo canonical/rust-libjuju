@@ -23,10 +23,10 @@ parts:
     source: .
     source-subdir: plugins
     plugin: rust
-    build-attributes: [no-patchelf]
     # https://forum.snapcraft.io/t/issue-with-rebuilding-a-rust-snap/10830
     override-build: |
-      [ -f "$SNAPCRAFT_PART_INSTALL/bin/juju-*" ] && rm "$SNAPCRAFT_PART_INSTALL/bin/juju-*"
+      [ -f "$SNAPCRAFT_PART_INSTALL/bin/juju-bundle" ] && rm "$SNAPCRAFT_PART_INSTALL/bin/juju-bundle"
+      [ -f "$SNAPCRAFT_PART_INSTALL/bin/juju-kubectl" ] && rm "$SNAPCRAFT_PART_INSTALL/bin/juju-kubectl"
       snapcraftctl build
 
 architectures:
