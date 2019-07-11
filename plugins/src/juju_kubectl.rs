@@ -1,11 +1,10 @@
 //! Juju plugin for running `kubectl` against the current model
 
 use clap::{clap_app, crate_authors, crate_description, crate_version};
-use ex::fs::write;
 use failure::{bail, Error};
 use tempfile::NamedTempFile;
 
-use juju::cmd::{get_output, run};
+use juju::cmd::run;
 use juju::local::{controller::Substrate, ControllerYaml, ModelYaml};
 
 fn parse_model_name(model_name: &str) -> (Option<&str>, Option<&str>) {
@@ -52,16 +51,21 @@ fn main() -> Result<(), Error> {
         kubectl_args.extend(&["-n", &model_name])
     }
 
-    let kubecfg = NamedTempFile::new()?;
+    let substrate = controllers.substrate(&controller_name)?;
 
-    let path = &kubecfg.path().as_os_str().to_string_lossy();
-
-    match controllers.substrate(&controller_name)? {
+    match substrate {
         Substrate::MicroK8s => {
-            let output = get_output("microk8s.config", &[""])?;
-            write(kubecfg.path(), output)?;
+            run("microk8s.kubectl", &kubectl_args)?;
         }
         Substrate::CDK => {
+            let kubecfg = NamedTempFile::new()?;
+            let path = &kubecfg.path().as_os_str().to_string_lossy();
+
+            let kubectl_args = vec!["--kubeconfig", path]
+                .into_iter()
+                .chain(kubectl_args.into_iter())
+                .collect::<Vec<_>>();
+
             run(
                 "juju",
                 &[
@@ -72,19 +76,13 @@ fn main() -> Result<(), Error> {
                     path,
                 ],
             )?;
+
+            run("kubectl", &kubectl_args)?;
         }
         Substrate::Unknown => {
             bail!("Couldn't determine cloud substrate.");
         }
     }
-
-    run(
-        "kubectl",
-        &vec!["--kubeconfig", path]
-            .into_iter()
-            .chain(kubectl_args.into_iter())
-            .collect::<Vec<_>>(),
-    )?;
 
     Ok(())
 }

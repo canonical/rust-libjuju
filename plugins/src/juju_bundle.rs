@@ -5,7 +5,7 @@ use std::path::PathBuf;
 use std::process::Command;
 
 use ex::fs;
-use failure::{format_err, Error, ResultExt};
+use failure::{Error, format_err, ResultExt};
 use rayon::prelude::*;
 use structopt::{self, clap::AppSettings, StructOpt};
 use tempfile::{NamedTempFile, TempDir};

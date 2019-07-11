@@ -1,6 +1,7 @@
-use crate::error::JujuError;
 use std::ffi::OsStr;
 use std::process::Command;
+
+use crate::error::JujuError;
 
 pub fn run<S: AsRef<OsStr>>(cmd: &str, args: &[S]) -> Result<(), JujuError> {
     let status = Command::new(cmd)
