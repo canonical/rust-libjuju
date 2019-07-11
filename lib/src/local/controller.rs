@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::process::Command;
 
 use ex::fs::read;
 use serde_derive::Deserialize;
@@ -76,7 +75,8 @@ impl ControllerYaml {
                 "--format",
                 "yaml",
             ],
-        )?;
+        )
+        .unwrap_or_else(|_| Vec::new());
 
         let controller = self.get(Some(name))?;
         let is_cdk = String::from_utf8_lossy(&yaml)

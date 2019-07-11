@@ -1,7 +1,5 @@
 //! Juju plugin for running `kubectl` against the current model
 
-use std::process::{exit, Command};
-
 use clap::{clap_app, crate_authors, crate_description, crate_version};
 use ex::fs::write;
 use failure::{bail, Error};
@@ -73,7 +71,7 @@ fn main() -> Result<(), Error> {
                     "kubernetes-master/0:~/config",
                     path,
                 ],
-            );
+            )?;
         }
         Substrate::Unknown => {
             bail!("Couldn't determine cloud substrate.");
