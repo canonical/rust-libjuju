@@ -12,7 +12,7 @@ use std::path::PathBuf;
 /// Matches a `kebab-case` name that must not start or end with a dash
 fn kebab_case(input: &str) -> IResult<&str, &str> {
     // Need some valid input
-    if input.len() == 0 {
+    if input.is_empty() {
         return Err(NomErr::Incomplete(Needed::Size(1)));
     }
 
@@ -187,7 +187,7 @@ impl<'de> Deserialize<'de> for CharmURL {
         use serde::de::Error;
         let s = String::deserialize(deserializer)?;
 
-        Ok(s.parse().map_err(|err| Error::custom(format!("{}", err)))?)
+        Ok(s.parse().map_err(|err| Error::custom(format!("Error deserializing CharmURL: {}", err)))?)
     }
 }
 
