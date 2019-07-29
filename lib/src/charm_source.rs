@@ -211,7 +211,7 @@ pub struct Layers {
 /// A charm, as represented by the source directory
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct Charm {
+pub struct CharmSource {
     /// The charm's config.yaml file
     pub config: Config,
 
@@ -225,7 +225,7 @@ pub struct Charm {
     source: PathBuf,
 }
 
-impl Charm {
+impl CharmSource {
     /// Load a charm from its source directory
     pub fn load<P: Into<PathBuf>>(path: P) -> Result<Self, JujuError> {
         let p = path.into();

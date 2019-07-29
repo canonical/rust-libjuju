@@ -5,14 +5,15 @@ use std::path::PathBuf;
 use std::process::Command;
 
 use ex::fs;
-use failure::{Error, format_err, ResultExt};
+use failure::{format_err, Error, ResultExt};
 use rayon::prelude::*;
 use structopt::{self, clap::AppSettings, StructOpt};
 use tempfile::{NamedTempFile, TempDir};
 
 use juju::bundle::{Application, Bundle};
 use juju::channel::Channel;
-use juju::charm::Charm;
+use juju::charm_source::CharmSource;
+use juju::charm_url::CharmURL;
 use juju::paths;
 
 /// CLI arguments for the `deploy` subcommand.
@@ -171,8 +172,7 @@ fn deploy(c: DeployConfig) -> Result<(), Error> {
                         paths::charm_source_dir().join(source)
                     };
 
-                    let charm = Charm::load(&charm_path)
-                        .with_context(|_| charm_path.display().to_string())?;
+                    let charm = CharmSource::load(&charm_path)?;
 
                     charm.build(name)?;
 
@@ -182,12 +182,7 @@ fn deploy(c: DeployConfig) -> Result<(), Error> {
                         }
                     }
 
-                    Some(
-                        build_dir
-                            .join(charm.metadata.name)
-                            .to_string_lossy()
-                            .to_string(),
-                    )
+                    Some(CharmURL::from_path(build_dir.join(charm.metadata.name)))
                 }
             };
 
@@ -295,7 +290,8 @@ fn publish(c: PublishConfig) -> Result<(), Error> {
             let cs_url = app
                 .charm
                 .as_ref()
-                .expect("Already asserted this must exist!");
+                .expect("Already asserted this must exist!")
+                .to_string();
 
             // If `source` starts with `.`, it's a relative path from the bundle we're
             // deploying. Otherwise, look in `CHARM_SOURCE_DIR` for it.
@@ -305,11 +301,11 @@ fn publish(c: PublishConfig) -> Result<(), Error> {
                 paths::charm_source_dir().join(source)
             };
 
-            let charm =
-                Charm::load(&charm_path).with_context(|_| charm_path.display().to_string())?;
+            let charm = CharmSource::load(&charm_path)
+                .with_context(|_| charm_path.display().to_string())?;
 
             charm.build(name)?;
-            let rev_url = charm.push(cs_url, &app.resources)?;
+            let rev_url = charm.push(&cs_url, &app.resources)?;
 
             charm.promote(&rev_url, Channel::Edge)?;
             Ok((name, rev_url))
@@ -325,7 +321,7 @@ fn publish(c: PublishConfig) -> Result<(), Error> {
             .applications
             .get_mut(name)
             .expect("App must exist!")
-            .charm = Some(revision);
+            .charm = Some(revision.parse().unwrap());
     }
 
     // Create a temp dir for the bundle to point `charm` at,

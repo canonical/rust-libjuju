@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
 use serde_derive::{Deserialize, Serialize};
-use serde_yaml::{Error, from_slice};
+use serde_yaml::{from_slice, Error};
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 #[serde(deny_unknown_fields, rename_all = "kebab-case")]

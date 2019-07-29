@@ -9,6 +9,7 @@ use serde_derive::{Deserialize, Serialize};
 use serde_yaml::{from_slice, from_str, to_vec};
 
 use crate::channel::Channel;
+use crate::charm_url::CharmURL;
 use crate::cmd;
 use crate::error::JujuError;
 use crate::series::Series;
@@ -55,7 +56,7 @@ pub struct Application {
     /// If not set, `Application::source` will be used to build the charm. If both
     /// are set, this property is preferred, unless `--build` is passed. One or
     /// the other must be set.
-    pub charm: Option<String>,
+    pub charm: Option<CharmURL>,
 
     /// Config options
     #[serde(default)]
@@ -91,12 +92,12 @@ impl Application {
             Some(charm) => {
                 let url = format!(
                     "https://api.jujucharms.com/charmstore/v5/{}/meta/resources",
-                    &charm[3..]
+                    &charm.api_name()
                 );
 
                 let response: Vec<Resource> = reqwest::get(&url).unwrap().json().unwrap();
 
-                let args = vec!["release", "--channel", to.into(), charm]
+                let args = vec!["release", "--channel", to.into(), &charm.to_string()]
                     .into_iter()
                     .map(String::from)
                     .chain(

@@ -1,6 +1,7 @@
 pub mod bundle;
 pub mod channel;
-pub mod charm;
+pub mod charm_source;
+pub mod charm_url;
 pub mod cmd;
 pub mod error;
 pub mod local;

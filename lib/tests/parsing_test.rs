@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
+use std::convert::TryInto;
 
 use juju::bundle::{Annotations, Application, Bundle};
 use juju::series::Series;
@@ -17,7 +18,7 @@ fn parse_bundle() {
                 gui_y: "0".into(),
             }),
             source: Some("./foo".into()),
-            charm: Some("cs:foo".into()),
+            charm: Some("cs:foo".try_into().unwrap()),
             scale: 1,
             ..Default::default()
         },
@@ -26,7 +27,7 @@ fn parse_bundle() {
     applications.insert(
         "bar".to_string(),
         Application {
-            charm: Some("cs:bar".into()),
+            charm: Some("cs:bar".try_into().unwrap()),
             scale: 1,
             ..Default::default()
         },
