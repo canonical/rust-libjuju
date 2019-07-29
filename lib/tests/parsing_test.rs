@@ -1,6 +1,6 @@
 use std::collections::HashMap;
-use std::path::PathBuf;
 use std::convert::TryInto;
+use std::path::PathBuf;
 
 use juju::bundle::{Annotations, Application, Bundle};
 use juju::series::Series;

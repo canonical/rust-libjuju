@@ -187,7 +187,8 @@ impl<'de> Deserialize<'de> for CharmURL {
         use serde::de::Error;
         let s = String::deserialize(deserializer)?;
 
-        Ok(s.parse().map_err(|err| Error::custom(format!("Error deserializing CharmURL: {}", err)))?)
+        Ok(s.parse()
+            .map_err(|err| Error::custom(format!("Error deserializing CharmURL: {}", err)))?)
     }
 }
 
