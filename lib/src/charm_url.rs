@@ -94,10 +94,10 @@ fn parse_cs_url(input: &str) -> IResult<&str, CharmURL> {
 /// Represents a charm's charm store URL
 #[derive(Debug, PartialEq, Clone, Eq)]
 pub struct CharmURL {
-    store: Option<String>,
-    namespace: Option<String>,
-    name: String,
-    revision: Option<u32>,
+    pub store: Option<String>,
+    pub namespace: Option<String>,
+    pub name: String,
+    pub revision: Option<u32>,
 }
 
 impl CharmURL {

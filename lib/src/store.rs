@@ -53,10 +53,10 @@ pub enum ResourceType {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(deny_unknown_fields, rename_all = "PascalCase")]
+#[serde(deny_unknown_fields, rename_all = "kebab-case")]
 pub struct Resource {
     pub name: String,
-    #[serde(rename = "Type")]
+    #[serde(rename = "type")]
     pub kind: ResourceType,
     pub path: String,
     pub description: String,

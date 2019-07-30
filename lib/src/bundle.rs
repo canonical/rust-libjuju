@@ -11,6 +11,7 @@ use serde_yaml::{from_slice, from_str, to_vec};
 use crate::channel::Channel;
 use crate::charm_url::CharmURL;
 use crate::cmd;
+use crate::cmd::get_output;
 use crate::error::JujuError;
 use crate::series::Series;
 use crate::store::Resource;
@@ -90,21 +91,19 @@ impl Application {
     pub fn release(&self, to: Channel) -> Result<(), JujuError> {
         match &self.charm {
             Some(charm) => {
-                let url = format!(
-                    "https://api.jujucharms.com/charmstore/v5/{}/meta/resources",
-                    &charm.api_name()
-                );
+                let resources: Vec<Resource> = from_slice(&get_output(
+                    "charm",
+                    &["list-resources", "--format", "yaml", &charm.to_string()],
+                )?)?;
 
-                let response: Vec<Resource> = reqwest::get(&url).unwrap().json().unwrap();
+                let resource_args = resources
+                    .iter()
+                    .map(|res| format!("--resource={}-{}", res.name, res.revision));
 
                 let args = vec!["release", "--channel", to.into(), &charm.to_string()]
                     .into_iter()
                     .map(String::from)
-                    .chain(
-                        response
-                            .iter()
-                            .map(|res| format!("--resource={}-{}", res.name, res.revision)),
-                    )
+                    .chain(resource_args)
                     .collect::<Vec<_>>();
 
                 cmd::run("charm", &args)

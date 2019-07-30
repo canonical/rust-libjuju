@@ -82,6 +82,10 @@ struct PromoteConfig {
     #[structopt(long = "to")]
     #[structopt(help = "The bundle channel to promote to")]
     to: Channel,
+
+    #[structopt(short = "e", long = "exclude")]
+    #[structopt(help = "Select particular apps to exclude from promoting")]
+    excluded: Vec<String>,
 }
 
 /// Interact with a bundle and the charms contained therein.
@@ -346,12 +350,17 @@ fn publish(c: PublishConfig) -> Result<(), Error> {
 fn promote(c: PromoteConfig) -> Result<(), Error> {
     let (revision, bundle) = Bundle::load_from_store(&c.bundle, c.from)?;
 
-    bundle.release(&format!("{}-{}", c.bundle, revision), c.to)?;
-
-    for (name, app) in bundle.applications {
+    for (name, app) in &bundle.applications {
+        if c.excluded.contains(name) {
+            continue;
+        }
         println!("Promoting {} to {:?}.", name, c.to);
         app.release(c.to)?;
     }
+
+    println!("Bundle charms successfully promoted, promoting bundle.");
+
+    bundle.release(&format!("{}-{}", c.bundle, revision), c.to)?;
 
     Ok(())
 }
