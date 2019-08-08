@@ -29,6 +29,6 @@ pub fn charm_source_dir() -> PathBuf {
 pub fn charm_cache_dir<P: Into<PathBuf>>(charm_name: P) -> PathBuf {
     dir_from_env(
         "CHARM_CACHE_DIR",
-        PathBuf::from(".cache").join(charm_name.into()),
+        PathBuf::from(".cache/charm").join(charm_name.into()),
     )
 }
