@@ -97,28 +97,25 @@ pub struct StorageMultiple {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(deny_unknown_fields, rename_all = "kebab-case")]
-pub enum StorageType {
-    Filesystem,
-    Block,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields, tag = "type", rename_all = "kebab-case")]
-pub struct Storage {
-    #[serde(default)]
-    description: String,
-    #[serde(rename = "type")]
-    kind: StorageType,
-    location: String,
-    #[serde(default)]
-    minimum_size: String,
-    #[serde(default)]
-    multiple: StorageMultiple,
-    #[serde(default)]
-    read_only: bool,
-    #[serde(default)]
-    shared: bool,
+pub enum Storage {
+    Filesystem {
+        #[serde(default)]
+        description: String,
+        location: String,
+        #[serde(default)]
+        minimum_size: String,
+        #[serde(default)]
+        multiple: StorageMultiple,
+        #[serde(default)]
+        read_only: bool,
+        #[serde(default)]
+        shared: bool,
+    },
+    Block {
+        #[serde(default)]
+        multiple: StorageMultiple,
+    },
 }
 
 /// A charm's metadata.yaml file
