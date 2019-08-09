@@ -99,6 +99,7 @@ pub struct StorageMultiple {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields, tag = "type", rename_all = "kebab-case")]
 pub enum Storage {
+    #[serde(rename_all = "kebab-case")]
     Filesystem {
         #[serde(default)]
         description: String,
