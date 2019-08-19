@@ -20,8 +20,12 @@ pub fn juju_data_dir() -> PathBuf {
 
 pub fn charm_build_dir() -> PathBuf {
     env::var("CHARM_BUILD_DIR")
-        .unwrap_or_else(|_| String::from("/tmp/charm-builds"))
-        .into()
+        .map(PathBuf::from)
+        .unwrap_or_else(|_| {
+            env::var("JUJU_REPOSITORY")
+                .map(|p| PathBuf::from(p).join("builds"))
+                .unwrap_or_else(|_| PathBuf::from("/tmp/charm-builds"))
+        })
 }
 
 pub fn charm_source_dir() -> PathBuf {
