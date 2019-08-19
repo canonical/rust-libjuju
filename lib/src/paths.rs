@@ -19,13 +19,13 @@ pub fn juju_data_dir() -> PathBuf {
 }
 
 pub fn charm_build_dir() -> PathBuf {
-    env::var("CHARM_BUILD_DIR")
-        .map(PathBuf::from)
-        .unwrap_or_else(|_| {
-            env::var("JUJU_REPOSITORY")
-                .map(|p| PathBuf::from(p).join("builds"))
-                .unwrap_or_else(|_| PathBuf::from("/tmp/charm-builds"))
-        })
+    if let Ok(p) = env::var("CHARM_BUILD_DIR") {
+        p.into()
+    } else if let Ok(p) = env::var("JUJU_REPOSITORY") {
+        PathBuf::from(p).join("builds")
+    } else {
+        "/tmp/charm-builds".into()
+    }
 }
 
 pub fn charm_source_dir() -> PathBuf {
