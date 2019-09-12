@@ -2,11 +2,11 @@ use std::convert::TryFrom;
 use std::path::PathBuf;
 use std::str::FromStr;
 
-use nom::{Err as NomErr, IResult, Needed};
 use nom::bytes::complete::tag;
 use nom::character::complete::{alpha1, digit1};
 use nom::combinator::{map_res, opt};
 use nom::sequence::{delimited, preceded, terminated, tuple};
+use nom::{Err as NomErr, IResult, Needed};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 /// Matches a `kebab-case` name that must not start or end with a dash

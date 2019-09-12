@@ -155,7 +155,10 @@ impl Bundle {
             None => return Err(JujuError::NamespaceRequired(name.into())),
         };
 
-        let base_url = format!("https://api.jujucharms.com/charmstore/v5/~{}/bundle/{}", namespace, parsed.name);
+        let base_url = format!(
+            "https://api.jujucharms.com/charmstore/v5/~{}/bundle/{}",
+            namespace, parsed.name
+        );
         let rev_url = format!(
             "{}/meta/id-revision/?channel={}",
             base_url,
