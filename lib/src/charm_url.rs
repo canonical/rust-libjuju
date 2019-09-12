@@ -1,13 +1,13 @@
+use std::convert::TryFrom;
+use std::path::PathBuf;
 use std::str::FromStr;
 
+use nom::{Err as NomErr, IResult, Needed};
 use nom::bytes::complete::tag;
 use nom::character::complete::{alpha1, digit1};
 use nom::combinator::{map_res, opt};
 use nom::sequence::{delimited, preceded, terminated, tuple};
-use nom::{Err as NomErr, IResult, Needed};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use std::convert::TryFrom;
-use std::path::PathBuf;
 
 /// Matches a `kebab-case` name that must not start or end with a dash
 fn kebab_case(input: &str) -> IResult<&str, &str> {
@@ -194,8 +194,9 @@ impl<'de> Deserialize<'de> for CharmURL {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use serde_yaml::{from_str, to_string};
+
+    use super::*;
 
     #[test]
     fn test_alphadash() {

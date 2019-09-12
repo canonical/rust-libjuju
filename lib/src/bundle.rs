@@ -149,19 +149,20 @@ impl Bundle {
     ///
     /// TODO: Turn this into a more general charm store client
     pub fn load_from_store(name: &str, channel: Channel) -> Result<(u32, Self), JujuError> {
-        let base_url = format!("https://api.jujucharms.com/charmstore/v5/bundle/{}", name);
+        let parsed = CharmURL::parse(name).unwrap();
+        let base_url = format!("https://api.jujucharms.com/charmstore/v5/bundle/{}", parsed.name);
         let rev_url = format!(
             "{}/meta/id-revision/?channel={}",
             base_url,
             channel.to_string()
         );
 
-        let response: HashMap<String, u32> = reqwest::get(&rev_url).unwrap().json().unwrap();
+        let response: HashMap<String, u32> = reqwest::get(&rev_url)?.json()?;
 
         let revision = response["Revision"];
 
         let bundle_url = format!("{}-{}/archive/bundle.yaml", base_url, revision);
-        let response = reqwest::get(&bundle_url)?.text().unwrap();
+        let response = reqwest::get(&bundle_url)?.text()?;
 
         Ok((revision, from_str(&response)?))
     }
