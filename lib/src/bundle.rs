@@ -150,7 +150,12 @@ impl Bundle {
     /// TODO: Turn this into a more general charm store client
     pub fn load_from_store(name: &str, channel: Channel) -> Result<(u32, Self), JujuError> {
         let parsed = CharmURL::parse(name).unwrap();
-        let base_url = format!("https://api.jujucharms.com/charmstore/v5/bundle/{}", parsed.name);
+        let namespace = match parsed.namespace {
+            Some(n) => n,
+            None => return Err(JujuError::NamespaceRequired(name.into())),
+        };
+
+        let base_url = format!("https://api.jujucharms.com/charmstore/v5/~{}/bundle/{}", namespace, parsed.name);
         let rev_url = format!(
             "{}/meta/id-revision/?channel={}",
             base_url,

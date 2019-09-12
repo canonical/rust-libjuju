@@ -39,6 +39,9 @@ pub enum JujuError {
     #[fail(display = "Error running subcommand `{}`: `{}`", _0, _1)]
     SubcommandError(String, String),
 
+    #[fail(display = "Can't promote promulgated charm name, use full charm store URL: `{}`", _0)]
+    NamespaceRequired(String),
+
     #[fail(display = "Error while talking to network: {}", _0)]
     NetworkError(#[fail(cause)] ReqwestError),
 }

@@ -350,6 +350,8 @@ fn publish(c: PublishConfig) -> Result<(), Error> {
 fn promote(c: PromoteConfig) -> Result<(), Error> {
     let (revision, bundle) = Bundle::load_from_store(&c.bundle, c.from)?;
 
+    println!("Found bundle revision {}", revision);
+
     for (name, app) in &bundle.applications {
         if c.excluded.contains(name) {
             continue;
