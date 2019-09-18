@@ -133,13 +133,17 @@ fn deploy(c: DeployConfig) -> Result<(), Error> {
 
     let temp_bundle = NamedTempFile::new()?;
 
+    // Filter out relations that point to an application that was filtered out
     bundle.relations = bundle
         .relations
         .into_iter()
         .filter(|rels| {
+            // Strip out interface name-style syntax before filtering,
+            // e.g. `foo:bar` => `foo`.
             rels.iter()
+                .map(|r| r.split(":").next().unwrap())
                 .collect::<HashSet<_>>()
-                .is_subset(&applications.keys().collect())
+                .is_subset(&applications.keys().map(String::as_ref).collect())
         })
         .collect();
 
