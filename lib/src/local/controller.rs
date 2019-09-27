@@ -34,7 +34,7 @@ pub struct Controller {
     pub controller_machine_count: u32,
     #[serde(default)]
     pub machine_count: u32,
-    pub region: String,
+    pub region: Option<String>,
     #[serde(rename = "type")]
     pub kind: Option<String>,
     pub uuid: String,
@@ -83,9 +83,9 @@ impl ControllerYaml {
             .find("kubernetes-master/0")
             .is_some();
 
-        match (is_cdk, controller.region.as_ref()) {
+        match (is_cdk, controller.region.as_ref().map(String::as_str)) {
             (true, _) => Ok(Substrate::CDK),
-            (false, "localhost") => Ok(Substrate::MicroK8s),
+            (false, Some("localhost")) => Ok(Substrate::MicroK8s),
             (false, _) => Ok(Substrate::Unknown),
         }
     }
