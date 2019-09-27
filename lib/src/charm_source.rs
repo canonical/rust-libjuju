@@ -119,6 +119,16 @@ pub enum Storage {
     },
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields, rename_all = "kebab-case")]
+pub struct Deployment {
+    #[serde(rename = "type")]
+    pub kind: String,
+    pub service: String,
+    pub daemonset: Option<bool>,
+    pub min_version: Option<String>,
+}
+
 /// A charm's metadata.yaml file
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields, rename_all = "kebab-case")]
@@ -165,6 +175,9 @@ pub struct Metadata {
     /// Whether or not this charm is subordinate to another charm
     #[serde(default)]
     pub subordinate: bool,
+
+    #[serde(default)]
+    pub deployment: Option<Deployment>,
 }
 
 /// Config option as defined in config.yaml
