@@ -141,7 +141,7 @@ fn deploy(c: DeployConfig) -> Result<(), Error> {
             // Strip out interface name-style syntax before filtering,
             // e.g. `foo:bar` => `foo`.
             rels.iter()
-                .map(|r| r.split(":").next().unwrap())
+                .map(|r| r.split(':').next().unwrap())
                 .collect::<HashSet<_>>()
                 .is_subset(&applications.keys().map(String::as_ref).collect())
         })
