@@ -38,7 +38,7 @@ fn main() -> Result<(), Error> {
     let controllers = ControllerYaml::load()?;
     let models = ModelYaml::load()?;
 
-    let controller_name = controllers.validate_name(controller_name);
+    let controller_name = controllers.validate_name(controller_name)?;
     let model_name = models.validate_name(&controller_name, model_name)?;
 
     // Get all the extra args to pass onto `kubectl`

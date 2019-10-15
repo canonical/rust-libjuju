@@ -43,7 +43,7 @@ pub struct Controller {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields, rename_all = "kebab-case")]
 pub struct ControllerYaml {
-    pub current_controller: String,
+    pub current_controller: Option<String>,
     pub controllers: HashMap<String, Controller>,
 }
 
@@ -55,14 +55,26 @@ impl ControllerYaml {
     }
 
     pub fn get(&self, name: Option<&str>) -> Result<&Controller, JujuError> {
-        let n = name.unwrap_or(&self.current_controller);
+        let n = match name {
+            Some(n) => n,
+            None => match &self.current_controller {
+                Some(cc) => cc,
+                None => return Err(JujuError::NoActiveController),
+            },
+        };
         self.controllers
             .get(n)
             .ok_or_else(|| JujuError::ControllerNotFound(n.to_string()))
     }
 
-    pub fn validate_name(&self, name: Option<&str>) -> String {
-        name.unwrap_or(&self.current_controller).into()
+    pub fn validate_name(&self, name: Option<&str>) -> Result<String, JujuError> {
+         match name {
+            Some(n) => Ok(n.into()),
+            None => match &self.current_controller {
+                Some(cc) => Ok(cc.into()),
+                None => return Err(JujuError::NoActiveController),
+            },
+        }
     }
 
     pub fn substrate(&self, name: &str) -> Result<Substrate, JujuError> {

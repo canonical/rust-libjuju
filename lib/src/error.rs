@@ -24,6 +24,9 @@ pub enum JujuError {
     #[fail(display = "Controller `{}` not found", _0)]
     ControllerNotFound(String),
 
+    #[fail(display = "No active controller found")]
+    NoActiveController,
+
     #[fail(display = "Model `{}` not found in controller {}", _0, _1)]
     ModelNotFound(String, String),
 
