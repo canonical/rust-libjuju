@@ -68,11 +68,11 @@ impl ControllerYaml {
     }
 
     pub fn validate_name(&self, name: Option<&str>) -> Result<String, JujuError> {
-         match name {
+        match name {
             Some(n) => Ok(n.into()),
             None => match &self.current_controller {
                 Some(cc) => Ok(cc.into()),
-                None => return Err(JujuError::NoActiveController),
+                None => Err(JujuError::NoActiveController),
             },
         }
     }
