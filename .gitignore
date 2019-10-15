@@ -1,4 +1,5 @@
 /target
+/lib/target
 **/*.rs.bk
 *.snap
 /Cargo.lock
