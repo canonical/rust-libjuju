@@ -29,7 +29,7 @@ fn kebab_case(input: &str) -> IResult<&str, &str> {
                 .map(|ch| ch.is_alphabetic())
                 .unwrap_or(false);
 
-            let valid_char = ch.is_alphabetic();
+            let valid_char = ch.is_ascii_alphanumeric();
             let valid_dash = ch == '-' && i != 0 && alpha_next;
 
             !(valid_char || valid_dash)
@@ -227,6 +227,11 @@ mod tests {
         let (remainder, parsed) = parse_name("bar-42").unwrap();
 
         assert_eq!(parsed, "bar");
+        assert_eq!(remainder, "-42");
+
+        let (remainder, parsed) = parse_name("k8s-42").unwrap();
+
+        assert_eq!(parsed, "k8s");
         assert_eq!(remainder, "-42");
 
         let (remainder, parsed) = parse_name("bar-").unwrap();
