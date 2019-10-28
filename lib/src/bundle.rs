@@ -9,6 +9,7 @@ use serde_derive::{Deserialize, Serialize};
 use serde_yaml::{from_slice, from_str, to_vec};
 
 use crate::channel::Channel;
+use crate::charm_source::CharmSource;
 use crate::charm_url::CharmURL;
 use crate::cmd;
 use crate::cmd::get_output;
@@ -110,6 +111,28 @@ impl Application {
             }
             None => Err(JujuError::ApplicationNotFound("No charm URL set!".into())),
         }
+    }
+
+    pub fn upgrade(&self, name: &str) -> Result<(), JujuError> {
+        let source_dir = self
+            .charm
+            .as_ref()
+            .map(ToString::to_string)
+            .expect("Built charm directory can't be empty");
+        let charm = CharmSource::load(source_dir.clone())?;
+        let resources = charm.resources_with_defaults(&self.resources)?;
+
+        let args = vec!["upgrade-charm", name, "--path", &source_dir]
+            .into_iter()
+            .map(String::from)
+            .chain(
+                resources
+                    .iter()
+                    .map(|(k, v)| format!("--resource={}={}", k, v)),
+            )
+            .collect::<Vec<_>>();
+
+        cmd::run("juju", &args)
     }
 }
 
@@ -222,5 +245,13 @@ impl Bundle {
 
     pub fn release(&self, bundle_url: &str, to: Channel) -> Result<(), JujuError> {
         cmd::run("charm", &["release", "--channel", to.into(), bundle_url])
+    }
+
+    pub fn upgrade_charms(&self) -> Result<(), JujuError> {
+        for (name, app) in &self.applications {
+            app.upgrade(name)?;
+        }
+
+        Ok(())
     }
 }

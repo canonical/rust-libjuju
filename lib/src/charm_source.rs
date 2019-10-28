@@ -217,6 +217,15 @@ pub struct Layers {
     /// Should be specified in the form of `"type:name"`, for example
     /// `"layer:status"`.
     pub includes: Vec<String>,
+
+    // TODO: Make these better
+    name: Option<String>,
+    maintainer: Option<String>,
+    description: Option<String>,
+    #[serde(skip)]
+    proof: u32,
+    #[serde(skip)]
+    tactics: u32,
 }
 
 /// A charm, as represented by the source directory

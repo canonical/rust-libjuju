@@ -23,6 +23,10 @@ struct DeployConfig {
     #[structopt(help = "Recreate the bundle by ensuring that it's removed before deploying")]
     recreate: bool,
 
+    #[structopt(long = "upgrade-charms")]
+    #[structopt(help = "Runs upgrade-charm on each individual charm instead of redeploying")]
+    upgrade_charms: bool,
+
     #[structopt(long = "build")]
     #[structopt(help = "Build the bundle before deploying it. Requires `source:` to be defined")]
     build: bool,
@@ -199,6 +203,12 @@ fn deploy(c: DeployConfig) -> Result<(), Error> {
         .collect();
 
     bundle.applications = mapped?;
+
+    // If we're only upgrading charms, we can skip the rest of the logic
+    // that is concerned with tearing down and/or deploying the charms.
+    if c.upgrade_charms {
+        return Ok(bundle.upgrade_charms()?);
+    }
 
     bundle.save(temp_bundle.path())?;
 
