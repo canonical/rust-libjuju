@@ -178,21 +178,25 @@ impl Bundle {
             None => return Err(JujuError::NamespaceRequired(name.into())),
         };
 
-        let base_url = format!(
-            "https://api.jujucharms.com/charmstore/v5/~{}/bundle/{}",
-            namespace, parsed.name
+        let output: HashMap<String, HashMap<String, u32>> = from_slice(&cmd::get_output(
+            "charm",
+            &[
+                "show",
+                name,
+                "--channel",
+                &channel.to_string(),
+                "--format=yaml",
+                "id-revision",
+            ],
+        )?)?;
+
+        let revision = output["id-revision"]["Revision"];
+
+        let bundle_url = format!(
+            "https://api.jujucharms.com/charmstore/v5/~{}/bundle/{}-{}/archive/bundle.yaml",
+            namespace, parsed.name, revision
         );
-        let rev_url = format!(
-            "{}/meta/id-revision/?channel={}",
-            base_url,
-            channel.to_string()
-        );
 
-        let response: HashMap<String, u32> = reqwest::get(&rev_url)?.json()?;
-
-        let revision = response["Revision"];
-
-        let bundle_url = format!("{}-{}/archive/bundle.yaml", base_url, revision);
         let response = reqwest::get(&bundle_url)?.text()?;
 
         Ok((revision, from_str(&response)?))

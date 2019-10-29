@@ -5,7 +5,7 @@ use std::path::PathBuf;
 
 use ex::fs::read;
 use serde_derive::{Deserialize, Serialize};
-use serde_yaml::from_slice;
+use serde_yaml::{from_slice, Value};
 
 use crate::channel::Channel;
 use crate::cmd;
@@ -178,6 +178,9 @@ pub struct Metadata {
 
     #[serde(default)]
     pub deployment: Option<Deployment>,
+
+    /// Minimum Juju version supported by the charm
+    pub min_juju_version: Option<String>,
 }
 
 /// Config option as defined in config.yaml
@@ -222,10 +225,16 @@ pub struct Layers {
     name: Option<String>,
     maintainer: Option<String>,
     description: Option<String>,
-    #[serde(skip)]
-    proof: u32,
-    #[serde(skip)]
-    tactics: u32,
+
+    proof: Option<Value>,
+
+    #[serde(default)]
+    options: HashMap<String, HashMap<String, bool>>,
+
+    #[serde(default)]
+    tactics: Vec<String>,
+
+    is: Option<String>,
 }
 
 /// A charm, as represented by the source directory
