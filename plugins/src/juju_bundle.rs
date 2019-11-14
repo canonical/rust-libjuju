@@ -373,7 +373,7 @@ fn promote(c: PromoteConfig) -> Result<(), Error> {
     println!("Found bundle revision {}", revision);
 
     for (name, app) in &bundle.applications {
-        if c.excluded.contains(name) {
+        if c.excluded.contains(name) || app.source.is_none() {
             continue;
         }
         println!("Promoting {} to {:?}.", name, c.to);
