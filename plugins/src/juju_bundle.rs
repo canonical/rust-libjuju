@@ -15,6 +15,7 @@ use juju::channel::Channel;
 use juju::charm_source::CharmSource;
 use juju::charm_url::CharmURL;
 use juju::paths;
+use juju::cmd::run;
 
 /// CLI arguments for the `deploy` subcommand.
 #[derive(StructOpt, Debug)]
@@ -270,6 +271,11 @@ fn remove(c: RemoveConfig) -> Result<(), Error> {
 fn publish(c: PublishConfig) -> Result<(), Error> {
     let path = c.bundle.as_str();
     let bundle = Bundle::load(path)?;
+
+    // Make sure we're logged in first, so that we don't get a bunch of
+    // login pages spawn with `charm push`.
+    println!("Logging in to charm store, this may open up a browser window.");
+    run("charm", &["login"])?;
 
     // Grab only the apps that we have both the source and a charm store
     // URL for, as otherwise there's nothing to publish
