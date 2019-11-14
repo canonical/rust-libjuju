@@ -14,8 +14,8 @@ use juju::bundle::{Application, Bundle};
 use juju::channel::Channel;
 use juju::charm_source::CharmSource;
 use juju::charm_url::CharmURL;
-use juju::paths;
 use juju::cmd::run;
+use juju::paths;
 
 /// CLI arguments for the `deploy` subcommand.
 #[derive(StructOpt, Debug)]
