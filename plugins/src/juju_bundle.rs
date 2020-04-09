@@ -71,6 +71,16 @@ struct PublishConfig {
     #[structopt(long = "url")]
     #[structopt(help = "The charm store URL for the bundle")]
     cs_url: String,
+
+    #[structopt(long = "serial")]
+    #[structopt(help = "If set, only one charm will be built and published at a time")]
+    serial: bool,
+
+    #[structopt(long = "prune")]
+    #[structopt(
+        help = "If set, docker will be pruned between each charm. Enforces --serial also set."
+    )]
+    prune: bool,
 }
 
 /// CLI arguments for the `publish` subcommand.
@@ -269,6 +279,11 @@ fn remove(c: RemoveConfig) -> Result<(), Error> {
 
 /// Run `publish` subcommand
 fn publish(c: PublishConfig) -> Result<(), Error> {
+    if c.prune && !c.serial {
+        return Err(format_err!(
+            "To use --prune, you must set the --serial flag as well."
+        ));
+    }
     let path = c.bundle.as_str();
     let bundle = Bundle::load(path)?;
 
@@ -301,40 +316,48 @@ fn publish(c: PublishConfig) -> Result<(), Error> {
             .join("\n")
     );
 
+    let publish_handler = |(name, app): &(String, Application)| {
+        let source = app
+            .source
+            .as_ref()
+            .expect("Already asserted this must exist!");
+        let cs_url = app
+            .charm
+            .as_ref()
+            .expect("Already asserted this must exist!")
+            .to_string();
+
+        // If `source` starts with `.`, it's a relative path from the bundle we're
+        // deploying. Otherwise, look in `CHARM_SOURCE_DIR` for it.
+        let charm_path = if source.starts_with('.') {
+            PathBuf::from(path).parent().unwrap().join(source)
+        } else {
+            paths::charm_source_dir().join(source)
+        };
+
+        let charm =
+            CharmSource::load(&charm_path).with_context(|_| charm_path.display().to_string())?;
+
+        charm.build(name)?;
+        let rev_url = charm.push(&cs_url, &app.resources)?;
+
+        charm.promote(&rev_url, Channel::Edge)?;
+
+        if c.prune {
+            run("docker", &["system", "prune", "-af"])?;
+        }
+
+        Ok((name.clone(), rev_url))
+    };
+
     // Build each charm, upload it to the store, then promote that
     // revision to edge. Return a list of the revision URLs, so that
     // we can generate a bundle with those exact revisions to upload.
-    let revisions: Result<Vec<(&String, String)>, Error> = apps
-        .par_iter()
-        .map(|(name, app)| {
-            let source = app
-                .source
-                .as_ref()
-                .expect("Already asserted this must exist!");
-            let cs_url = app
-                .charm
-                .as_ref()
-                .expect("Already asserted this must exist!")
-                .to_string();
-
-            // If `source` starts with `.`, it's a relative path from the bundle we're
-            // deploying. Otherwise, look in `CHARM_SOURCE_DIR` for it.
-            let charm_path = if source.starts_with('.') {
-                PathBuf::from(path).parent().unwrap().join(source)
-            } else {
-                paths::charm_source_dir().join(source)
-            };
-
-            let charm = CharmSource::load(&charm_path)
-                .with_context(|_| charm_path.display().to_string())?;
-
-            charm.build(name)?;
-            let rev_url = charm.push(&cs_url, &app.resources)?;
-
-            charm.promote(&rev_url, Channel::Edge)?;
-            Ok((name, rev_url))
-        })
-        .collect();
+    let revisions: Result<Vec<(String, String)>, Error> = if c.serial {
+        apps.iter().map(publish_handler).collect()
+    } else {
+        apps.par_iter().map(publish_handler).collect()
+    };
 
     // Make a copy of the bundle with exact revisions of each charm
     let mut new_bundle = bundle.clone();
@@ -343,7 +366,7 @@ fn publish(c: PublishConfig) -> Result<(), Error> {
     for (name, revision) in revisions? {
         new_bundle
             .applications
-            .get_mut(name)
+            .get_mut(&name)
             .expect("App must exist!")
             .charm = Some(revision.parse().unwrap());
     }

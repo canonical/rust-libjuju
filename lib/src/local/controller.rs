@@ -95,7 +95,7 @@ impl ControllerYaml {
             .find("kubernetes-master/0")
             .is_some();
 
-        match (is_cdk, controller.region.as_ref().map(String::as_str)) {
+        match (is_cdk, controller.region.as_deref()) {
             (true, _) => Ok(Substrate::CDK),
             (false, Some("localhost")) => Ok(Substrate::MicroK8s),
             (false, _) => Ok(Substrate::Unknown),
