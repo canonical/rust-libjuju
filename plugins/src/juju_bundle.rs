@@ -13,7 +13,6 @@ use tempfile::{NamedTempFile, TempDir};
 use juju::bundle::{Application, Bundle};
 use juju::channel::Channel;
 use juju::charm_source::CharmSource;
-use juju::charm_url::CharmURL;
 use juju::cmd::run;
 use juju::paths;
 
@@ -39,6 +38,10 @@ struct DeployConfig {
     #[structopt(short = "a", long = "app")]
     #[structopt(help = "Select particular apps to deploy")]
     apps: Vec<String>,
+
+    #[structopt(short = "e", long = "except")]
+    #[structopt(help = "Select particular apps to skip deploying")]
+    exceptions: Vec<String>,
 
     #[structopt(short = "b", long = "bundle", default_value = "bundle.yaml")]
     #[structopt(help = "The bundle file to deploy")]
@@ -140,7 +143,7 @@ fn deploy(c: DeployConfig) -> Result<(), Error> {
 
     let mut bundle = Bundle::load(c.bundle.clone())?;
 
-    let applications = bundle.app_subset(c.apps.clone())?;
+    let applications = bundle.app_subset(c.apps.clone(), c.exceptions.clone())?;
     let build_count = applications.values().filter(|v| v.source.is_some()).count();
 
     println!("Found {} total applications", applications.len());
@@ -185,8 +188,6 @@ fn deploy(c: DeployConfig) -> Result<(), Error> {
                 (true, _, Some(source)) | (_, None, Some(source)) => {
                     println!("Building {}", name);
 
-                    let build_dir = paths::charm_build_dir();
-
                     // If `source` starts with `.`, it's a relative path from the bundle we're
                     // deploying. Otherwise, look in `CHARM_SOURCE_DIR` for it.
                     let charm_path = if source.starts_with('.') {
@@ -199,13 +200,16 @@ fn deploy(c: DeployConfig) -> Result<(), Error> {
 
                     charm.build(name)?;
 
-                    for (name, resource) in charm.metadata.resources {
-                        if let Some(source) = resource.upstream_source {
-                            new_application.resources.entry(name).or_insert(source);
+                    for (name, resource) in &charm.metadata.resources {
+                        if let Some(source) = &resource.upstream_source {
+                            new_application
+                                .resources
+                                .entry(name.into())
+                                .or_insert(source.into());
                         }
                     }
 
-                    Some(CharmURL::from_path(build_dir.join(charm.metadata.name)))
+                    Some(charm.artifact_path())
                 }
             };
 
@@ -268,7 +272,7 @@ fn deploy(c: DeployConfig) -> Result<(), Error> {
 /// Run `remove` subcommand
 fn remove(c: RemoveConfig) -> Result<(), Error> {
     let bundle = Bundle::load(c.bundle)?;
-    for name in bundle.app_subset(c.apps)?.keys() {
+    for name in bundle.app_subset(c.apps, vec![])?.keys() {
         Command::new("juju")
             .args(&["remove-application", name])
             .spawn()?

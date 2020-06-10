@@ -1,6 +1,7 @@
 //! Parsing for a charm's source directory
 
 use std::collections::HashMap;
+use std::env::current_dir;
 use std::path::PathBuf;
 
 use ex::fs::read;
@@ -8,6 +9,7 @@ use serde_derive::{Deserialize, Serialize};
 use serde_yaml::{from_slice, Value};
 
 use crate::channel::Channel;
+use crate::charm_url::CharmURL;
 use crate::cmd;
 use crate::error::JujuError;
 use crate::paths;
@@ -121,12 +123,27 @@ pub enum Storage {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields, rename_all = "kebab-case")]
+pub enum DeploymentMode {
+    Workload,
+    Operator,
+}
+
+impl Default for DeploymentMode {
+    fn default() -> Self {
+        DeploymentMode::Workload
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields, rename_all = "kebab-case")]
 pub struct Deployment {
     #[serde(rename = "type")]
-    pub kind: String,
-    pub service: String,
+    pub kind: Option<String>,
+    pub service: Option<String>,
     pub daemonset: Option<bool>,
     pub min_version: Option<String>,
+    #[serde(default)]
+    pub mode: DeploymentMode,
 }
 
 /// A charm's metadata.yaml file
@@ -237,6 +254,13 @@ pub struct Layers {
     is: Option<String>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields, tag = "type", rename_all = "kebab-case")]
+pub enum Framework {
+    Reactive,
+    Operator,
+}
+
 /// A charm, as represented by the source directory
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -250,6 +274,9 @@ pub struct CharmSource {
     /// The charm's metadata.yaml file
     pub metadata: Metadata,
 
+    /// The charming framework used
+    pub framework: Framework,
+
     /// The path to the charm's source code
     source: PathBuf,
 }
@@ -261,26 +288,52 @@ impl CharmSource {
         let config = read(p.join("config.yaml"))?;
         let layers = read(p.join("layer.yaml"))?;
         let metadata = read(p.join("metadata.yaml"))?;
+        let framework = if p.join("reactive").exists() {
+            Framework::Reactive
+        } else {
+            Framework::Operator
+        };
 
         Ok(Self {
             config: from_slice(&config)?,
             layers: from_slice(&layers)?,
             metadata: from_slice(&metadata)?,
+            framework,
             source: p,
         })
     }
 
     /// Build the charm from its source directory
     pub fn build(&self, name: &str) -> Result<(), JujuError> {
-        cmd::run(
-            "charm",
-            &[
-                "build",
-                &self.source.to_string_lossy(),
-                "--cache-dir",
-                &paths::charm_cache_dir(name).to_string_lossy(),
-            ],
-        )
+        match self.framework {
+            Framework::Reactive => cmd::run(
+                "charm",
+                &[
+                    "build",
+                    "--cache-dir",
+                    &paths::charm_cache_dir(name).to_string_lossy(),
+                    &self.source.to_string_lossy(),
+                ],
+            ),
+            Framework::Operator => cmd::run(
+                "charmcraft",
+                &["build", "-f", &self.source.to_string_lossy()],
+            ),
+        }
+    }
+
+    pub fn artifact_path(&self) -> CharmURL {
+        match &self.framework {
+            Framework::Reactive => {
+                CharmURL::from_path(paths::charm_build_dir().join(&self.metadata.name))
+            }
+            Framework::Operator => CharmURL::from_path(
+                current_dir()
+                    .unwrap()
+                    .join(&self.metadata.name)
+                    .with_extension("charm"),
+            ),
+        }
     }
 
     /// Push the charm to the charm store, and return the revision URL

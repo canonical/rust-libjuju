@@ -4,7 +4,6 @@ use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 
 use ex::fs::{read, write};
-use reqwest;
 use serde_derive::{Deserialize, Serialize};
 use serde_yaml::{from_slice, from_str, to_vec};
 
@@ -215,6 +214,7 @@ impl Bundle {
     pub fn app_subset(
         &self,
         names: Vec<String>,
+        exceptions: Vec<String>,
     ) -> Result<HashMap<String, Application>, JujuError> {
         if names.is_empty() {
             return Ok(self.applications.clone());
@@ -222,6 +222,7 @@ impl Bundle {
 
         let keys: HashSet<_> = self.applications.keys().cloned().collect();
         let names: HashSet<_> = names.into_iter().collect();
+        let exceptions: HashSet<_> = exceptions.into_iter().collect();
         let diff: Vec<String> = names.difference(&keys).cloned().collect();
 
         if diff.is_empty() {
@@ -229,7 +230,7 @@ impl Bundle {
                 .applications
                 .iter()
                 .filter_map(|(k, v)| {
-                    if names.contains(k.as_str()) {
+                    if names.contains(k.as_str()) && !exceptions.contains(k.as_str()) {
                         Some((k.clone(), v.clone()))
                     } else {
                         None
