@@ -205,7 +205,7 @@ fn deploy(c: DeployConfig) -> Result<(), Error> {
                             new_application
                                 .resources
                                 .entry(name.into())
-                                .or_insert(source.into());
+                                .or_insert_with(|| source.into());
                         }
                     }
 
