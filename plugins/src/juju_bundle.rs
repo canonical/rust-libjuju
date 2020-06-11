@@ -366,7 +366,6 @@ fn publish(c: PublishConfig) -> Result<(), Error> {
     // Make a copy of the bundle with exact revisions of each charm
     let mut new_bundle = bundle.clone();
 
-    #[allow(clippy::identity_conversion)]
     for (name, revision) in revisions? {
         new_bundle
             .applications
