@@ -1,4 +1,5 @@
 use serde_derive::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 //use serde_yaml::from_str;
 
@@ -63,6 +64,81 @@ pub struct Resource {
     pub revision: u32,
     pub fingerprint: Option<String>,
     pub size: u32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields, rename_all = "PascalCase")]
+pub struct ShowMetadata {
+    #[serde(default)]
+    pub deployment: HashMap<String, String>,
+    pub description: String,
+    pub name: String,
+    #[serde(default)]
+    pub provides: HashMap<String, HashMap<String, String>>,
+    #[serde(default)]
+    pub requires: HashMap<String, HashMap<String, String>>,
+    #[serde(default)]
+    pub resources: HashMap<String, HashMap<String, String>>,
+    #[serde(default)]
+    pub storage: HashMap<String, HashMap<String, String>>,
+    pub subordinate: bool,
+    pub summary: String,
+    pub supported_series: Vec<String>,
+    pub tags: Vec<String>,
+    #[serde(rename = "min-juju-version")]
+    pub min_juju_version: String,
+}
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields, rename_all = "PascalCase")]
+pub struct IdName {
+    pub name: String,
+}
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields, rename_all = "PascalCase")]
+pub struct IdRevision {
+    pub revision: u32,
+}
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields, rename_all = "PascalCase")]
+pub struct OwnerUser {
+    pub user: String,
+}
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields, rename_all = "PascalCase")]
+pub struct Perm {
+    pub read: Vec<String>,
+    pub write: Vec<String>,
+}
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields, rename_all = "PascalCase")]
+pub struct Promulgated {
+    pub promulgated: bool,
+}
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields, rename_all = "PascalCase")]
+pub struct Published {
+    pub channel: String,
+    pub current: bool,
+}
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields, rename_all = "PascalCase")]
+pub struct SupportedSeries {
+    pub supported_series: Vec<String>,
+}
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields, rename_all = "kebab-case")]
+pub struct Show {
+    pub bugs_url: String,
+    pub charm_metadata: ShowMetadata,
+    pub homepage: String,
+    pub id_name: IdName,
+    pub id_revision: IdRevision,
+    pub owner: OwnerUser,
+    pub perm: Perm,
+    pub promulgated: Promulgated,
+    pub published: HashMap<String, Vec<Published>>,
+    pub supported_series: SupportedSeries,
+    pub terms: Vec<String>,
 }
 
 //#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

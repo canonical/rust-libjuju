@@ -75,6 +75,10 @@ struct PublishConfig {
     #[structopt(help = "The charm store URL for the bundle")]
     cs_url: String,
 
+    #[structopt(long = "publish-charms")]
+    #[structopt(help = "If set, charms will be built and published")]
+    publish_charms: bool,
+
     #[structopt(long = "serial")]
     #[structopt(help = "If set, only one charm will be built and published at a time")]
     serial: bool,
@@ -104,6 +108,10 @@ struct PromoteConfig {
     #[structopt(short = "e", long = "exclude")]
     #[structopt(help = "Select particular apps to exclude from promoting")]
     excluded: Vec<String>,
+
+    #[structopt(long = "exclude-all")]
+    #[structopt(help = "Exclude all apps from being promoted")]
+    exclude_all: bool,
 }
 
 /// Interact with a bundle and the charms contained therein.
@@ -296,71 +304,75 @@ fn publish(c: PublishConfig) -> Result<(), Error> {
     println!("Logging in to charm store, this may open up a browser window.");
     run("charm", &["login"])?;
 
-    // Grab only the apps that we have both the source and a charm store
-    // URL for, as otherwise there's nothing to publish
-    let apps = bundle
-        .applications
-        .iter()
-        .filter_map(|(name, app)| {
-            if app.charm.is_some() && app.source.is_some() {
-                Some((name.clone(), app.clone()))
-            } else {
-                None
+    let revisions: Result<Vec<(String, String)>, Error> = if c.publish_charms {
+        let publish_handler = |(name, app): (&String, &Application)| {
+            match (&app.charm, &app.source) {
+                (Some(cs_url), Some(source)) => {
+                    // If `source` starts with `.`, it's a relative path from the bundle we're
+                    // deploying. Otherwise, look in `CHARM_SOURCE_DIR` for it.
+                    let charm_path = if source.starts_with('.') {
+                        PathBuf::from(path).parent().unwrap().join(source)
+                    } else {
+                        paths::charm_source_dir().join(source)
+                    };
+
+                    let charm = CharmSource::load(&charm_path)
+                        .with_context(|_| charm_path.display().to_string())?;
+
+                    charm.build(name)?;
+                    let rev_url = charm.push(&cs_url.to_string(), &app.resources)?;
+
+                    charm.promote(&rev_url, Channel::Edge)?;
+
+                    if c.prune {
+                        run("docker", &["system", "prune", "-af"])?;
+                    }
+
+                    Ok((name.clone(), rev_url))
+                }
+                (Some(charm), None) => {
+                    let revision = charm.show(Channel::Stable)?.id_revision.revision;
+                    Ok((
+                        name.clone(),
+                        charm.with_revision(Some(revision)).to_string(),
+                    ))
+                }
+                (None, _) => Err(format_err!("Charm URL required: {}", name)),
             }
-        })
-        .collect::<Vec<_>>();
-
-    println!(
-        "Publishing {} apps:\n{}\n",
-        apps.len(),
-        apps.iter()
-            .cloned()
-            .map(|(n, _)| n)
-            .collect::<Vec<_>>()
-            .join("\n")
-    );
-
-    let publish_handler = |(name, app): &(String, Application)| {
-        let source = app
-            .source
-            .as_ref()
-            .expect("Already asserted this must exist!");
-        let cs_url = app
-            .charm
-            .as_ref()
-            .expect("Already asserted this must exist!")
-            .to_string();
-
-        // If `source` starts with `.`, it's a relative path from the bundle we're
-        // deploying. Otherwise, look in `CHARM_SOURCE_DIR` for it.
-        let charm_path = if source.starts_with('.') {
-            PathBuf::from(path).parent().unwrap().join(source)
-        } else {
-            paths::charm_source_dir().join(source)
         };
 
-        let charm =
-            CharmSource::load(&charm_path).with_context(|_| charm_path.display().to_string())?;
-
-        charm.build(name)?;
-        let rev_url = charm.push(&cs_url, &app.resources)?;
-
-        charm.promote(&rev_url, Channel::Edge)?;
-
-        if c.prune {
-            run("docker", &["system", "prune", "-af"])?;
+        // Build each charm, upload it to the store, then promote that
+        // revision to edge. Return a list of the revision URLs, so that
+        // we can generate a bundle with those exact revisions to upload.
+        if c.serial {
+            bundle.applications.iter().map(publish_handler).collect()
+        } else {
+            bundle
+                .applications
+                .par_iter()
+                .map(publish_handler)
+                .collect()
         }
-
-        Ok((name.clone(), rev_url))
-    };
-
-    // Build each charm, upload it to the store, then promote that
-    // revision to edge. Return a list of the revision URLs, so that
-    // we can generate a bundle with those exact revisions to upload.
-    let revisions: Result<Vec<(String, String)>, Error> = if c.serial {
-        apps.iter().map(publish_handler).collect()
     } else {
-        apps.par_iter().map(publish_handler).collect()
+        bundle
+            .applications
+            .par_iter()
+            .map(|(name, app)| match &app.charm {
+                Some(charm) => {
+                    let channel = if app.source.is_some() {
+                        Channel::Edge
+                    } else {
+                        Channel::Stable
+                    };
+                    let revision = charm.show(channel)?.id_revision.revision;
+                    Ok((
+                        name.clone(),
+                        charm.with_revision(Some(revision)).to_string(),
+                    ))
+                }
+                None => Err(format_err!("Charm URL required: {}", name)),
+            })
+            .collect()
     };
 
     // Make a copy of the bundle with exact revisions of each charm
@@ -398,15 +410,17 @@ fn promote(c: PromoteConfig) -> Result<(), Error> {
 
     println!("Found bundle revision {}", revision);
 
-    for (name, app) in &bundle.applications {
-        if c.excluded.contains(name) || app.source.is_none() {
-            continue;
+    if !c.exclude_all {
+        for (name, app) in &bundle.applications {
+            if c.excluded.contains(name) || app.source.is_none() {
+                continue;
+            }
+            println!("Promoting {} to {:?}.", name, c.to);
+            app.release(c.to)?;
         }
-        println!("Promoting {} to {:?}.", name, c.to);
-        app.release(c.to)?;
-    }
 
-    println!("Bundle charms successfully promoted, promoting bundle.");
+        println!("Bundle charms successfully promoted, promoting bundle.");
+    }
 
     bundle.release(&format!("{}-{}", c.bundle, revision), c.to)?;
 
