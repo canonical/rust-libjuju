@@ -1,0 +1,40 @@
+name: Cargo
+
+on: [push, pull_request]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    name: build
+    runs-on: ubuntu-latest
+    steps:
+    - name: Check out code
+      uses: actions/checkout@v2
+    - name: Build Code
+      run: cargo build --verbose --all
+  test:
+    name: test
+    runs-on: ubuntu-latest
+    steps:
+    - name: Check out code
+      uses: actions/checkout@v2
+    - name: Test Code
+      run: cargo test --verbose --all
+  fmt:
+    name: fmt
+    runs-on: ubuntu-latest
+    steps:
+    - name: Check out code
+      uses: actions/checkout@v2
+    - name: Check Formatting
+      run: cargo fmt --verbose --all -- --check
+  clippy:
+    name: clippy
+    runs-on: ubuntu-latest
+    steps:
+    - name: Check out code
+      uses: actions/checkout@v2
+    - name: Lint code
+      run: cargo clippy --all-targets -- -D warnings
