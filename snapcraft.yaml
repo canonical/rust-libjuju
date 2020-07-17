@@ -7,7 +7,7 @@ description: |
   allows removing an existing bundle without touching the other
   applications in a given model.
 
-grade: devel
+grade: stable
 confinement: classic
 
 apps:
