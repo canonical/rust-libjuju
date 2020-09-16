@@ -1,7 +1,7 @@
 //! Juju plugin for interacting with a bundle
 
 use std::collections::{HashMap, HashSet};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use ex::fs;
@@ -178,7 +178,16 @@ fn deploy(c: DeployConfig) -> Result<(), Error> {
         .map(|(name, application)| {
             let mut new_application = application.clone();
 
-            new_application.charm = match (c.build, &application.charm, &application.source) {
+            let source = application.source.clone().or_else(|| {
+                let path = Path::new("./charms/").join(name);
+                if path.exists() {
+                    Some(path.into_os_string().into_string().unwrap())
+                } else {
+                    None
+                }
+            });
+
+            new_application.charm = match (c.build, &application.charm, source) {
                 // If a charm URL was defined and either the `--build` flag wasn't passed or
                 // there's no `source` property, deploy the charm URL
                 (false, Some(charm), _) | (_, Some(charm), None) => Some(charm.clone()),
