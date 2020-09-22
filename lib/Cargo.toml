@@ -20,4 +20,4 @@ serde_derive = "1.0"
 # Using patched copy until this is resolved:
 # https://github.com/chyh1990/yaml-rust/issues/140
 serde_yaml = { git = "https://github.com/knkski/serde-yaml.git" }
-
+tempfile = "3.1"

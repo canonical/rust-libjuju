@@ -7,6 +7,7 @@ use std::path::PathBuf;
 use ex::fs::read;
 use serde_derive::{Deserialize, Serialize};
 use serde_yaml::{from_slice, Value};
+use tempfile::TempDir;
 
 use crate::channel::Channel;
 use crate::charm_url::CharmURL;
@@ -165,6 +166,7 @@ pub struct Metadata {
     /// List of charm maintainers
     ///
     /// Expected format is `"Full Name <email@example.com>"`
+    #[serde(default)]
     pub maintainers: Vec<String>,
 
     /// List of arbitrary topic tags for the charm
@@ -265,41 +267,52 @@ pub enum Framework {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CharmSource {
+    /// The path to the charm's source code
+    source: PathBuf,
+
     /// The charm's config.yaml file
-    pub config: Config,
+    pub config: Option<Config>,
 
     /// The charm's layers.yaml file
-    pub layers: Layers,
+    pub layers: Option<Layers>,
 
     /// The charm's metadata.yaml file
     pub metadata: Metadata,
 
     /// The charming framework used
     pub framework: Framework,
-
-    /// The path to the charm's source code
-    source: PathBuf,
 }
 
 impl CharmSource {
     /// Load a charm from its source directory
     pub fn load<P: Into<PathBuf>>(path: P) -> Result<Self, JujuError> {
-        let p = path.into();
-        let config = read(p.join("config.yaml"))?;
-        let layers = read(p.join("layer.yaml"))?;
-        let metadata = read(p.join("metadata.yaml"))?;
-        let framework = if p.join("reactive").exists() {
+        let source = path.into();
+
+        // Deserialize the layers.yaml and config.yaml files, if they exist.
+        // Operator charms don't have layers.yaml, and charms with no config
+        // don't need config.yaml. metadata.yaml is necessary, so we can assume
+        // it exists and not jump through the extra hoop of `map`.
+        let config: Option<Config> = read(source.join("config.yaml"))
+            .map(|bytes| from_slice(&bytes))
+            .unwrap_or(Ok(None))?;
+        let layers: Option<Layers> = read(source.join("layer.yaml"))
+            .map(|bytes| from_slice(&bytes))
+            .unwrap_or(Ok(None))?;
+
+        let metadata = from_slice(&read(source.join("metadata.yaml"))?)?;
+
+        let framework = if source.join("reactive").exists() {
             Framework::Reactive
         } else {
             Framework::Operator
         };
 
         Ok(Self {
-            config: from_slice(&config)?,
-            layers: from_slice(&layers)?,
-            metadata: from_slice(&metadata)?,
+            config,
+            layers,
+            metadata,
             framework,
-            source: p,
+            source,
         })
     }
 
@@ -342,10 +355,25 @@ impl CharmSource {
         cs_url: &str,
         resources: &HashMap<String, String>,
     ) -> Result<String, JujuError> {
-        let build_dir = paths::charm_build_dir()
-            .join(&self.metadata.name)
-            .to_string_lossy()
-            .to_string();
+        let dir = TempDir::new()?;
+
+        // Reactive charms are built into `charm_build_dir`. Operator
+        // charms are built by `charmcraft` however, which zips up the
+        // directory into a `foo.charm` file, sitting in $CWD. `charm push`
+        // doesn't work with those files, so we first unzip it to a temp
+        // directory, and point `charm push` at that.
+        let build_dir = match self.framework {
+            Framework::Reactive => paths::charm_build_dir()
+                .join(&self.metadata.name)
+                .to_string_lossy()
+                .to_string(),
+            Framework::Operator => {
+                let build_dir = dir.path().to_string_lossy();
+                let zipped = format!("{}.charm", self.metadata.name);
+                cmd::run("unzip", &[zipped.as_str(), "-d", &*build_dir])?;
+                build_dir.to_string()
+            }
+        };
 
         let resources = self.resources_with_defaults(resources)?;
 

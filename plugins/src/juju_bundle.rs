@@ -152,7 +152,10 @@ fn deploy(c: DeployConfig) -> Result<(), Error> {
     let mut bundle = Bundle::load(c.bundle.clone())?;
 
     let applications = bundle.app_subset(c.apps.clone(), c.exceptions.clone())?;
-    let build_count = applications.values().filter(|v| v.source.is_some()).count();
+    let build_count = applications
+        .iter()
+        .filter(|(name, app)| app.source(name, &c.bundle).is_some())
+        .count();
 
     println!("Found {} total applications", applications.len());
     println!("Found {} applications to build.\n", build_count);
@@ -178,7 +181,8 @@ fn deploy(c: DeployConfig) -> Result<(), Error> {
         .map(|(name, application)| {
             let mut new_application = application.clone();
 
-            new_application.charm = match (c.build, &application.charm, &application.source) {
+            let source = application.source(name, &c.bundle);
+            new_application.charm = match (c.build, &application.charm, source) {
                 // If a charm URL was defined and either the `--build` flag wasn't passed or
                 // there's no `source` property, deploy the charm URL
                 (false, Some(charm), _) | (_, Some(charm), None) => Some(charm.clone()),
@@ -306,7 +310,7 @@ fn publish(c: PublishConfig) -> Result<(), Error> {
 
     let revisions: Result<Vec<(String, String)>, Error> = if c.publish_charms {
         let publish_handler = |(name, app): (&String, &Application)| {
-            match (&app.charm, &app.source) {
+            match (&app.charm, &app.source(name, &c.bundle)) {
                 (Some(cs_url), Some(source)) => {
                     // If `source` starts with `.`, it's a relative path from the bundle we're
                     // deploying. Otherwise, look in `CHARM_SOURCE_DIR` for it.
@@ -359,7 +363,7 @@ fn publish(c: PublishConfig) -> Result<(), Error> {
             .par_iter()
             .map(|(name, app)| match &app.charm {
                 Some(charm) => {
-                    let channel = if app.source.is_some() {
+                    let channel = if app.source(name, &c.bundle).is_some() {
                         Channel::Edge
                     } else {
                         Channel::Stable
@@ -412,7 +416,7 @@ fn promote(c: PromoteConfig) -> Result<(), Error> {
 
     if !c.exclude_all {
         for (name, app) in &bundle.applications {
-            if c.excluded.contains(name) || app.source.is_none() {
+            if c.excluded.contains(name) || app.source(name, &c.bundle).is_none() {
                 continue;
             }
             println!("Promoting {} to {:?}.", name, c.to);

@@ -49,7 +49,7 @@ pub struct Application {
     /// If the path starts with `.`, it's interpreted as being relative to
     /// the bundle itself. Otherwise, it's interpreted as being relative to
     /// `$CHARM_SOURCE_DIR`.
-    pub source: Option<String>,
+    source: Option<String>,
 
     /// URL of the charm
     ///
@@ -132,6 +132,24 @@ impl Application {
             .collect::<Vec<_>>();
 
         cmd::run("juju", &args)
+    }
+
+    /// Calculates the path to the charm's source directory
+    ///
+    /// This can be either manually set with `source: ./foo` in `bundle.yaml`,
+    /// or implicit in the existence of a `./charms/foo` directory, relative
+    /// to `bundle.yaml`.
+    pub fn source(&self, name: &str, bundle_path: &str) -> Option<String> {
+        if self.source.is_some() {
+            self.source.clone()
+        } else {
+            let path = PathBuf::from(bundle_path).parent().unwrap().join("./charms/").join(name);
+            if path.exists() {
+                Some(path.to_string_lossy().to_string())
+            } else {
+                None
+            }
+        }
     }
 }
 
