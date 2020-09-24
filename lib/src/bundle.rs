@@ -49,7 +49,7 @@ pub struct Application {
     /// If the path starts with `.`, it's interpreted as being relative to
     /// the bundle itself. Otherwise, it's interpreted as being relative to
     /// `$CHARM_SOURCE_DIR`.
-    source: Option<String>,
+    pub source: Option<String>,
 
     /// URL of the charm
     ///
