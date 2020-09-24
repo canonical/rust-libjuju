@@ -1,7 +1,7 @@
 //! Juju plugin for interacting with a bundle
 
 use std::collections::{HashMap, HashSet};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::process::Command;
 
 use ex::fs;
