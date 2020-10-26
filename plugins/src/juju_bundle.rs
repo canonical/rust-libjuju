@@ -79,6 +79,10 @@ struct PublishConfig {
     #[structopt(help = "If set, charms will be built and published")]
     publish_charms: bool,
 
+    #[structopt(long = "publish-namespace")]
+    #[structopt(help = "If set, the namespace to publish charms under")]
+    publish_namespace: Option<String>,
+
     #[structopt(long = "serial")]
     #[structopt(help = "If set, only one charm will be built and published at a time")]
     serial: bool,
@@ -324,7 +328,12 @@ fn publish(c: PublishConfig) -> Result<(), Error> {
                         .with_context(|_| charm_path.display().to_string())?;
 
                     charm.build(name)?;
-                    let rev_url = charm.push(&cs_url.to_string(), &app.resources)?;
+                    let rev_url = charm.push(
+                        &cs_url
+                            .with_namespace(c.publish_namespace.clone())
+                            .to_string(),
+                        &app.resources,
+                    )?;
 
                     charm.promote(&rev_url, Channel::Edge)?;
 

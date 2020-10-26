@@ -137,6 +137,13 @@ impl CharmURL {
         }
     }
 
+    pub fn with_namespace(&self, namespace: Option<String>) -> Self {
+        CharmURL {
+            namespace,
+            ..self.clone()
+        }
+    }
+
     pub fn with_revision(&self, revision: Option<u32>) -> Self {
         CharmURL {
             revision,
