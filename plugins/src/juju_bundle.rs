@@ -109,13 +109,9 @@ struct PromoteConfig {
     #[structopt(help = "The bundle channel to promote to")]
     to: Channel,
 
-    #[structopt(short = "e", long = "exclude")]
-    #[structopt(help = "Select particular apps to exclude from promoting")]
-    excluded: Vec<String>,
-
-    #[structopt(long = "exclude-all")]
-    #[structopt(help = "Exclude all apps from being promoted")]
-    exclude_all: bool,
+    #[structopt(short = "a", long = "application")]
+    #[structopt(help = "Select apps to promote with the bundle")]
+    apps: Vec<String>,
 }
 
 /// Interact with a bundle and the charms contained therein.
@@ -423,17 +419,15 @@ fn promote(c: PromoteConfig) -> Result<(), Error> {
 
     println!("Found bundle revision {}", revision);
 
-    if !c.exclude_all {
-        for (name, app) in &bundle.applications {
-            if c.excluded.contains(name) || app.source(name, &c.bundle).is_none() {
-                continue;
-            }
-            println!("Promoting {} to {:?}.", name, c.to);
-            app.release(c.to)?;
+    for (name, app) in &bundle.applications {
+        if !c.apps.contains(name) {
+            continue;
         }
-
-        println!("Bundle charms successfully promoted, promoting bundle.");
+        println!("Promoting {} to {:?}.", name, c.to);
+        app.release(c.to)?;
     }
+
+    println!("Bundle charms successfully promoted, promoting bundle.");
 
     bundle.release(&format!("{}-{}", c.bundle, revision), c.to)?;
 
