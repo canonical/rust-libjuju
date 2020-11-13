@@ -32,6 +32,7 @@ pub struct Controller {
     pub ca_cert: String,
     pub cloud: String,
     pub controller_machine_count: u32,
+    #[serde(default)]
     pub dns_cache: HashMap<String, Vec<String>>,
     #[serde(default)]
     pub machine_count: u32,
