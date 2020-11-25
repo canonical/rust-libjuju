@@ -1,7 +1,7 @@
 //! Juju plugin for running `kubectl` against the current model
 
-use clap::{clap_app, crate_authors, crate_description, crate_version};
-use failure::{bail, Error};
+use clap::{AppSettings, Clap};
+use failure::Error;
 use tempfile::NamedTempFile;
 
 use juju::cmd::run;
@@ -22,18 +22,22 @@ fn parse_model_name(model_name: &str) -> (Option<&str>, Option<&str>) {
     }
 }
 
-fn main() -> Result<(), Error> {
-    let matches = clap_app!(("juju-kubectl") =>
-        (@setting TrailingVarArg)
-        (version: crate_version!())
-        (author: crate_authors!())
-        (about: crate_description!())
-        (@arg MODEL: -m --model +takes_value "Model to operate in. Accepts [<controller name>:]<model name>")
-        (@arg KUBECTL: +multiple "Arguments to pass to kubectl")
-    )
-        .get_matches();
+#[derive(Clap)]
+#[clap(about, author, version, setting(AppSettings::TrailingVarArg))]
+struct Args {
+    #[clap(short, long)]
+    /// Model to operate in. Accepts [<controller name>:]<model name>
+    model: Option<String>,
 
-    let (controller_name, model_name) = parse_model_name(matches.value_of("MODEL").unwrap_or(""));
+    #[clap(multiple = true)]
+    /// Arguments to pass to kubectl
+    commands: Vec<String>,
+}
+
+fn main() -> Result<(), Error> {
+    let mut args: Args = Args::parse();
+    let model_name = args.model.unwrap_or_else(String::new);
+    let (controller_name, model_name) = parse_model_name(&model_name);
 
     let controllers = ControllerYaml::load()?;
     let models = ModelYaml::load()?;
@@ -42,28 +46,28 @@ fn main() -> Result<(), Error> {
     let model_name = models.validate_name(&controller_name, model_name)?;
 
     // Get all the extra args to pass onto `kubectl`
-    let mut kubectl_args = matches
-        .values_of("KUBECTL")
-        .map(Iterator::collect)
-        .unwrap_or_else(Vec::new);
-
-    if !kubectl_args.contains(&"-n") {
-        kubectl_args.extend(&["-n", &model_name])
+    let is_namespaced = args
+        .commands
+        .iter()
+        .any(|c| c == "-n" || c == "-A" || c == "--all-namespaces" || c.starts_with("-n"));
+    if !is_namespaced {
+        args.commands.push("-n".to_string());
+        args.commands.push(model_name);
     }
 
     let substrate = controllers.substrate(&controller_name)?;
 
     match substrate {
         Substrate::MicroK8s => {
-            run("microk8s.kubectl", &kubectl_args)?;
+            run("microk8s.kubectl", &args.commands)?;
         }
         Substrate::CDK => {
             let kubecfg = NamedTempFile::new()?;
             let path = &kubecfg.path().as_os_str().to_string_lossy();
 
-            let kubectl_args = vec!["--kubeconfig", path]
+            let kubectl_args = vec!["--kubeconfig".to_string(), path.to_string()]
                 .into_iter()
-                .chain(kubectl_args.into_iter())
+                .chain(args.commands.into_iter())
                 .collect::<Vec<_>>();
 
             run(
@@ -80,7 +84,8 @@ fn main() -> Result<(), Error> {
             run("kubectl", &kubectl_args)?;
         }
         Substrate::Unknown => {
-            bail!("Couldn't determine cloud substrate.");
+            eprintln!("WARNING: Couldn't determine cloud substrate! Using default kubeconfig");
+            run("kubectl", &args.commands)?;
         }
     }
 

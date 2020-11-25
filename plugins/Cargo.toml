@@ -13,7 +13,7 @@ name = "juju-kubectl"
 path = "src/juju_kubectl.rs"
 
 [dependencies]
-clap = "2.33"
+clap = "3.0.0-beta.2"
 ex = "0.1"
 failure = "0.1"
 juju-rs = { path = "../lib" }
