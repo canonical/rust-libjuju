@@ -143,16 +143,20 @@ impl Application {
         if self.source.is_some() {
             self.source.clone()
         } else {
-            let path = PathBuf::from(bundle_path)
-                .parent()
-                .unwrap()
-                .join("./charms/")
-                .join(name);
-            if path.exists() {
-                Some(path.to_string_lossy().to_string())
-            } else {
-                None
+            let root = PathBuf::from(bundle_path);
+            let root = root.parent().unwrap();
+            let paths = [
+                root.join("./").join(name),
+                root.join("./charms/").join(name),
+            ];
+
+            for path in &paths {
+                if path.exists() {
+                    return Some(path.to_string_lossy().to_string());
+                }
             }
+
+            None
         }
     }
 }
