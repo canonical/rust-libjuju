@@ -1,0 +1,23 @@
+controllers:
+    uk8s:
+        uuid: d9df0ce4-caec-4c65-8a86-389627ac9845
+        api-endpoints: ['localhost:1234']
+        dns-cache: {localhost: ['::1', 127.0.0.1]}
+        ca-cert: CERTIFICATE
+        cloud: microk8s
+        region: localhost
+        type: kubernetes
+        agent-version: 2.9-rc5
+        controller-machine-count: 1
+        active-controller-machine-count: 0
+        machine-count: 1
+        proxy-config:
+            config:
+                api-host: https://10.0.0.1:16443
+                ca-cert: CERTIFICATE
+                namespace: controller-uk8s
+                remote-port: "17070"
+                service: controller-service
+                service-account-token: TOKEN
+            type: kubernetes-port-forward
+current-controller: uk8s

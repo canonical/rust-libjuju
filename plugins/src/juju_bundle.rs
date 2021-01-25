@@ -6,6 +6,10 @@ use std::process::Command;
 
 use ex::fs;
 use failure::{format_err, Error, ResultExt};
+use petgraph::{
+    dot::{Config as GraphConfig, Dot},
+    Graph,
+};
 use rayon::prelude::*;
 use structopt::{self, clap::AppSettings, StructOpt};
 use tempfile::{NamedTempFile, TempDir};
@@ -114,6 +118,18 @@ struct PromoteConfig {
     apps: Vec<String>,
 }
 
+/// CLI arguments for the `export` subcommand.
+#[derive(StructOpt, Debug)]
+struct ExportConfig {
+    #[structopt(short = "b", long = "bundle", default_value = "bundle.yaml")]
+    #[structopt(help = "The bundle file to export")]
+    bundle: String,
+
+    #[structopt(short = "o", long = "out")]
+    #[structopt(help = "Where to write the exported bundle")]
+    out: Option<String>,
+}
+
 /// Interact with a bundle and the charms contained therein.
 #[derive(StructOpt, Debug)]
 #[structopt(raw(setting = "AppSettings::TrailingVarArg"))]
@@ -143,6 +159,10 @@ enum Config {
     /// Promotes a bundle and its charms from one channel to another
     #[structopt(name = "promote")]
     Promote(PromoteConfig),
+
+    /// Exports the bundle to different formats, e.g. graphviz
+    #[structopt(name = "export")]
+    Export(ExportConfig),
 }
 
 /// Run `deploy` subcommand
@@ -434,11 +454,39 @@ fn promote(c: PromoteConfig) -> Result<(), Error> {
     Ok(())
 }
 
+/// Run `export` subcommand
+fn export(c: ExportConfig) -> Result<(), Error> {
+    let bundle = Bundle::load(&c.bundle)?;
+
+    let mut graph = Graph::<_, String>::new();
+
+    for app in bundle.applications.keys() {
+        graph.add_node(app);
+    }
+    for rel in bundle.relations {
+        let app_a = rel[0].split(":").next().unwrap_or(&rel[0]);
+        let app_b = rel[1].split(":").next().unwrap_or(&rel[1]);
+        let rel_name = rel[0].split(":").last().unwrap_or("");
+        let index_a = graph.node_indices().find(|i| graph[*i] == app_a).unwrap();
+        let index_b = graph.node_indices().find(|i| graph[*i] == app_b).unwrap();
+        graph.add_edge(index_a, index_b, rel_name.to_string());
+    }
+    let output = Dot::with_config(&graph, &[GraphConfig::EdgeNoLabel]);
+
+    match c.out {
+        Some(out) => fs::write(out, format!("{}", output))?,
+        None => println!("{}", output),
+    }
+
+    Ok(())
+}
+
 fn main() -> Result<(), Error> {
     match Config::from_args() {
         Config::Deploy(c) => deploy(c),
         Config::Remove(c) => remove(c),
         Config::Publish(c) => publish(c),
         Config::Promote(c) => promote(c),
+        Config::Export(c) => export(c),
     }
 }

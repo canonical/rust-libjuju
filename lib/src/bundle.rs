@@ -223,8 +223,12 @@ impl Bundle {
         );
 
         let response = reqwest::get(&bundle_url)?.text()?;
+        let parsed: CharmStoreResponse = from_str(&response)?;
 
-        Ok((revision, from_str(&response)?))
+        match parsed {
+            CharmStoreResponse::Bundle(b) => Ok((revision, b)),
+            CharmStoreResponse::Error { message, .. } => Err(JujuError::MacaroonError(message)),
+        }
     }
 
     /// Save this bundle to the given path
@@ -285,4 +289,16 @@ impl Bundle {
 
         Ok(())
     }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(untagged, deny_unknown_fields)]
+enum CharmStoreResponse {
+    Bundle(Bundle),
+    #[serde(rename_all = "PascalCase")]
+    Error {
+        code: String,
+        message: String,
+        info: serde_yaml::Value,
+    },
 }

@@ -50,6 +50,9 @@ pub enum JujuError {
 
     #[fail(display = "Error while talking to network: {}", _0)]
     NetworkError(#[fail(cause)] ReqwestError),
+
+    #[fail(display = "Error while talking to charm store: {}", _0)]
+    MacaroonError(String),
 }
 
 impl From<IOError> for JujuError {

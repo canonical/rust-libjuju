@@ -15,14 +15,31 @@ pub enum Substrate {
     Unknown,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, PartialEq)]
 #[serde(deny_unknown_fields, rename_all = "kebab-case")]
 pub struct ControllerMachines {
     pub active: u32,
     pub total: u32,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, PartialEq)]
+#[serde(deny_unknown_fields, rename_all = "kebab-case", tag = "type")]
+pub struct KubernetesPortForwardConfig {
+    pub api_host: String,
+    pub ca_cert: String,
+    pub namespace: String,
+    pub remote_port: String,
+    pub service: String,
+    pub service_account_token: String,
+}
+
+#[derive(Debug, Clone, Deserialize, PartialEq)]
+#[serde(deny_unknown_fields, rename_all = "kebab-case", tag = "type")]
+pub enum ProxyConfig {
+    KubernetesPortForward { config: KubernetesPortForwardConfig },
+}
+
+#[derive(Debug, Clone, Deserialize, PartialEq)]
 #[serde(deny_unknown_fields, rename_all = "kebab-case")]
 pub struct Controller {
     pub active_controller_machine_count: u32,
@@ -40,9 +57,11 @@ pub struct Controller {
     #[serde(rename = "type")]
     pub kind: Option<String>,
     pub uuid: String,
+
+    pub proxy_config: Option<ProxyConfig>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, PartialEq)]
 #[serde(deny_unknown_fields, rename_all = "kebab-case")]
 pub struct ControllerYaml {
     pub current_controller: Option<String>,
@@ -53,6 +72,10 @@ impl ControllerYaml {
     pub fn load() -> Result<Self, JujuError> {
         let bytes = read(juju_data_dir().join("controllers.yaml"))?;
 
+        Self::load_from_bytes(&bytes[..])
+    }
+
+    pub fn load_from_bytes(bytes: &[u8]) -> Result<Self, JujuError> {
         Ok(from_slice(&bytes)?)
     }
 
