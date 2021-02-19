@@ -208,7 +208,7 @@ pub struct Metadata {
 pub enum ConfigOption {
     /// String config option
     String {
-        default: String,
+        default: Option<String>,
         description: String,
     },
 
