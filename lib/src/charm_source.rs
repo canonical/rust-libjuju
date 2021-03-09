@@ -2,12 +2,14 @@
 
 use std::collections::HashMap;
 use std::env::current_dir;
+use std::io::Read;
 use std::path::PathBuf;
 
-use ex::fs::read;
+use ex::fs::{read, File};
 use serde_derive::{Deserialize, Serialize};
 use serde_yaml::{from_slice, Value};
 use tempfile::TempDir;
+use zip::ZipArchive;
 
 use crate::channel::Channel;
 use crate::charm_url::CharmURL;
@@ -284,10 +286,7 @@ pub struct CharmSource {
 }
 
 impl CharmSource {
-    /// Load a charm from its source directory
-    pub fn load<P: Into<PathBuf>>(path: P) -> Result<Self, JujuError> {
-        let source = path.into();
-
+    fn load_dir(source: PathBuf) -> Result<Self, JujuError> {
         // Deserialize the layers.yaml and config.yaml files, if they exist.
         // Operator charms don't have layers.yaml, and charms with no config
         // don't need config.yaml. metadata.yaml is necessary, so we can assume
@@ -314,6 +313,63 @@ impl CharmSource {
             framework,
             source,
         })
+    }
+
+    fn load_zip(source: PathBuf) -> Result<Self, JujuError> {
+        let mut archive = ZipArchive::new(File::open(source.clone())?)?;
+        // Deserialize the layers.yaml and config.yaml files, if they exist.
+        // Operator charms don't have layers.yaml, and charms with no config
+        // don't need config.yaml. metadata.yaml is necessary, so we can assume
+        // it exists and not jump through the extra hoop of `map`.
+        let config: Option<Config> = archive
+            .by_name("config.yaml")
+            .map(|mut zf| -> Result<_, JujuError> {
+                let mut buf = String::new();
+                zf.read_to_string(&mut buf)?;
+                Ok(from_slice(&buf.as_bytes())?)
+            })
+            .unwrap_or(Ok(None))?;
+
+        let layers: Option<Layers> = archive
+            .by_name("layer.yaml")
+            .map(|mut zf| -> Result<_, JujuError> {
+                let mut buf = String::new();
+                zf.read_to_string(&mut buf)?;
+                Ok(from_slice(&buf.as_bytes())?)
+            })
+            .unwrap_or(Ok(None))?;
+
+        let metadata = {
+            let mut zf = archive.by_name("metadata.yaml")?;
+            let mut buf = String::new();
+            zf.read_to_string(&mut buf)?;
+            from_slice(&buf.as_bytes())?
+        };
+
+        let framework = if archive.by_name("reactive").is_ok() {
+            Framework::Reactive
+        } else {
+            Framework::Operator
+        };
+
+        Ok(Self {
+            config,
+            layers,
+            metadata,
+            framework,
+            source,
+        })
+    }
+
+    /// Load a charm from its source directory
+    pub fn load<P: Into<PathBuf>>(path: P) -> Result<Self, JujuError> {
+        let source = path.into();
+
+        if source.is_file() {
+            Self::load_zip(source)
+        } else {
+            Self::load_dir(source)
+        }
     }
 
     /// Build the charm from its source directory

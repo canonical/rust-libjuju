@@ -6,6 +6,7 @@ use ex::io::Error as ExIOError;
 use failure::Fail;
 use reqwest::Error as ReqwestError;
 use serde_yaml::Error as YamlError;
+use zip::result::ZipError;
 
 #[derive(Debug, Fail)]
 pub enum JujuError {
@@ -53,6 +54,9 @@ pub enum JujuError {
 
     #[fail(display = "Error while talking to charm store: {}", _0)]
     MacaroonError(String),
+
+    #[fail(display = "Error while talking to charm store: {}", _0)]
+    ZipError(#[fail(cause)] ZipError),
 }
 
 impl From<IOError> for JujuError {
@@ -76,5 +80,11 @@ impl From<YamlError> for JujuError {
 impl From<ReqwestError> for JujuError {
     fn from(err: ReqwestError) -> Self {
         JujuError::NetworkError(err)
+    }
+}
+
+impl From<ZipError> for JujuError {
+    fn from(err: ZipError) -> Self {
+        JujuError::ZipError(err)
     }
 }
