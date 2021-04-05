@@ -1,6 +1,5 @@
 name: juju-helpers
 base: core18
-version: '0.1.0'
 summary: Juju plugins to ease a few pain points
 description: |
   Allows building a bundle as necessary and then deploying it. Also
@@ -9,6 +8,7 @@ description: |
 
 grade: stable
 confinement: classic
+adopt-info: juju-helpers
 
 apps:
   juju-bundle:
@@ -28,6 +28,7 @@ parts:
       [ -f "$SNAPCRAFT_PART_INSTALL/bin/juju-bundle" ] && rm "$SNAPCRAFT_PART_INSTALL/bin/juju-bundle"
       [ -f "$SNAPCRAFT_PART_INSTALL/bin/juju-kubectl" ] && rm "$SNAPCRAFT_PART_INSTALL/bin/juju-kubectl"
       snapcraftctl build
+      snapcraftctl set-version $(juju-bundle --version | cut -d' ' -f2)
 
 architectures:
   - amd64

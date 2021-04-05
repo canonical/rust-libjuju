@@ -80,6 +80,7 @@ pub struct Resource {
 pub struct Interface {
     pub interface: String,
     pub scope: Option<RelationScope>,
+    pub schema: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
