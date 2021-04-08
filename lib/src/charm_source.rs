@@ -81,6 +81,8 @@ pub struct Interface {
     pub interface: String,
     pub scope: Option<RelationScope>,
     pub schema: Option<String>,
+    #[serde(default)]
+    pub versions: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
