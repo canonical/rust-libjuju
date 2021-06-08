@@ -13,7 +13,8 @@ jobs:
     - name: Check out code
       uses: actions/checkout@v2
     - name: Build Code
-      run: cargo build --verbose --all
+      run: cargo build --verbose
+
   test:
     name: test
     runs-on: ubuntu-latest
@@ -21,7 +22,8 @@ jobs:
     - name: Check out code
       uses: actions/checkout@v2
     - name: Test Code
-      run: cargo test --verbose --all
+      run: cargo test --verbose
+
   fmt:
     name: fmt
     runs-on: ubuntu-latest
@@ -29,7 +31,8 @@ jobs:
     - name: Check out code
       uses: actions/checkout@v2
     - name: Check Formatting
-      run: cargo fmt --verbose --all -- --check
+      run: cargo fmt --verbose -- --check
+
   clippy:
     name: clippy
     runs-on: ubuntu-latest

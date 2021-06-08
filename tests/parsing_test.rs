@@ -39,6 +39,7 @@ fn parse_bundle() {
     assert_eq!(
         bundle,
         Bundle {
+            name: None,
             applications,
             description: Some("An awesome bundle".to_string()),
             relations: vec![vec!["foo", "bar"]

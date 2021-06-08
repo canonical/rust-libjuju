@@ -36,7 +36,11 @@ pub struct Annotations {
     pub gui_y: String,
 }
 
-/// An application within the bundle
+/// An application within a bundle
+///
+/// See the `ApplicationSpec` defined [here][spec] for the canonical upstream definition
+///
+/// [spec]: https://github.com/juju/charm/blob/master/bundledata.go
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
 #[serde(deny_unknown_fields)]
 pub struct Application {
@@ -44,12 +48,8 @@ pub struct Application {
     #[serde(default)]
     pub annotations: Option<Annotations>,
 
-    /// Charm source code location
-    ///
-    /// If the path starts with `.`, it's interpreted as being relative to
-    /// the bundle itself. Otherwise, it's interpreted as being relative to
-    /// `$CHARM_SOURCE_DIR`.
-    pub source: Option<String>,
+    /// Preferred channel to use when deploying a remote charm
+    pub channel: Option<String>,
 
     /// URL of the charm
     ///
@@ -59,22 +59,40 @@ pub struct Application {
     /// the other must be set.
     pub charm: Option<CharmURL>,
 
-    /// Config options
-    #[serde(default)]
-    pub config: HashMap<String, Value>,
-
     /// Constraints such as `cores=2 mem=4G`
     ///
-    /// See https://docs.jujucharms.com/2.5/en/reference-constraints for more info
+    /// See the [constraints documentation][constraints] for more info
+    ///
+    /// [constraints]: https://juju.is/docs/olm/constraints
     pub constraints: Option<String>,
+
+    /// Constraints for devices to assign to units of the application
+    #[serde(default)]
+    pub devices: HashMap<String, String>,
+
+    /// Maps how endpoints are bound to spaces
+    #[serde(default)]
+    pub endpoint_bindings: HashMap<String, String>,
 
     /// Whether to expose the application externally
     #[serde(default)]
     pub expose: bool,
 
-    /// TODO: Is this an alias of `config`?
+    /// Used to set charm config at deployment time
     #[serde(default)]
-    pub options: HashMap<String, String>,
+    pub options: HashMap<String, Value>,
+
+    /// Model selector/affinity expression for specifying pod placement
+    ///
+    /// Use for Kubernetes applications, not relevant for IaaS applications
+    pub placement: Option<String>,
+
+    /// Plan under which the application is to be deployed
+    pub plan: Option<String>,
+
+    /// Whether the application requires access to cloud credentials
+    #[serde(default)]
+    pub requires_trust: bool,
 
     /// Resources to make available to the application
     ///
@@ -85,6 +103,24 @@ pub struct Application {
     /// How many units to use for the application
     #[serde(default, alias = "num_units")]
     pub scale: u32,
+
+    /// Series to use when deploying a local charm
+    pub series: Option<String>,
+
+    /// Charm source code location
+    ///
+    /// If the path starts with `.`, it's interpreted as being relative to
+    /// the bundle itself. Otherwise, it's interpreted as being relative to
+    /// `$CHARM_SOURCE_DIR`.
+    pub source: Option<String>,
+
+    /// Constraints for storage to assign to units of the application
+    #[serde(default)]
+    pub storage: HashMap<String, String>,
+
+    /// Which Node (Kubernetes) or Unit (IaaS) this charm should be assigned to
+    #[serde(default)]
+    pub to: Vec<String>,
 }
 
 impl Application {
@@ -165,6 +201,9 @@ impl Application {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct Bundle {
+    /// Bundle name, used for uploading to charm store
+    pub name: Option<String>,
+
     /// The applications in the bundle
     #[serde(alias = "services")]
     pub applications: HashMap<String, Application>,
