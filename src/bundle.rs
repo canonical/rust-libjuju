@@ -202,6 +202,7 @@ impl Application {
 #[serde(deny_unknown_fields)]
 pub struct Bundle {
     /// Bundle name, used for uploading to charm store
+    #[serde(default)]
     pub name: Option<String>,
 
     /// The applications in the bundle
