@@ -59,6 +59,13 @@ pub struct Application {
     /// the other must be set.
     pub charm: Option<CharmURL>,
 
+    /// Used to set charm config at deployment time
+    ///
+    /// Duplicate of `options`, but Juju doesn't care if both are specified,
+    /// which serde doesn't like. So, we copy it here as well.
+    #[serde(default)]
+    pub config: HashMap<String, Value>,
+
     /// Constraints such as `cores=2 mem=4G`
     ///
     /// See the [constraints documentation][constraints] for more info
