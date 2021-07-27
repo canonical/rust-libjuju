@@ -78,6 +78,8 @@ pub struct ShowMetadata {
     #[serde(default)]
     pub requires: HashMap<String, HashMap<String, String>>,
     #[serde(default)]
+    pub peers: HashMap<String, HashMap<String, String>>,
+    #[serde(default)]
     pub resources: HashMap<String, HashMap<String, String>>,
     #[serde(default)]
     pub storage: HashMap<String, HashMap<String, String>>,
