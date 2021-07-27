@@ -57,6 +57,9 @@ pub enum JujuError {
 
     #[fail(display = "Error while talking to charm store: {}", _0)]
     ZipError(#[fail(cause)] ZipError),
+
+    #[fail(display = "Error charm URL prefix: {}", _0)]
+    UnknownCharmURLError(String),
 }
 
 impl From<IOError> for JujuError {

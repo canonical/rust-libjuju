@@ -319,10 +319,34 @@ impl Bundle {
         }
     }
 
-    pub fn push(&self, bundle_path: &str, cs_url: &str) -> Result<String, JujuError> {
-        let output: HashMap<String, String> =
-            from_slice(&cmd::get_output("charm", &["push", bundle_path, cs_url])?)?;
-        Ok(output["url"].clone())
+    /// Pushes bundle to charm store or charmhub
+    ///
+    /// Releases bundle to edge as well
+    pub fn push(&self, bundle_path: &str, cs_url: &CharmURL) -> Result<(), JujuError> {
+        match cs_url.store.as_deref() {
+            Some("ch") => {
+                cmd::run("charmcraft", &["pack", "-p", bundle_path])?;
+
+                let zip = PathBuf::from(bundle_path)
+                    .join(&cs_url.name)
+                    .with_extension("zip");
+
+                cmd::get_output(
+                    "charmcraft",
+                    &["upload", &*zip.to_string_lossy(), "--release=edge"],
+                )?;
+            }
+            Some("cs") | None => {
+                let output: HashMap<String, String> = from_slice(&cmd::get_output(
+                    "charm",
+                    &["push", bundle_path, &cs_url.to_string()],
+                )?)?;
+                let bundle_url = output["url"].clone();
+                self.release(&bundle_url, Channel::Edge)?;
+            }
+            Some(url) => return Err(JujuError::UnknownCharmURLError(url.into())),
+        }
+        Ok(())
     }
 
     pub fn release(&self, bundle_url: &str, to: Channel) -> Result<(), JujuError> {
