@@ -10,7 +10,7 @@ use crate::paths::juju_data_dir;
 
 #[derive(Debug, Clone)]
 pub enum Substrate {
-    CDK,
+    CharmedK8s,
     MicroK8s,
     Unknown,
 }
@@ -121,7 +121,7 @@ impl ControllerYaml {
             .is_some();
 
         match (is_cdk, controller.region.as_deref()) {
-            (true, _) => Ok(Substrate::CDK),
+            (true, _) => Ok(Substrate::CharmedK8s),
             (false, Some("localhost")) => Ok(Substrate::MicroK8s),
             (false, _) => Ok(Substrate::Unknown),
         }

@@ -310,11 +310,11 @@ impl CharmSource {
         };
 
         Ok(Self {
+            source,
             config,
             layers,
             metadata,
             framework,
-            source,
         })
     }
 
@@ -356,11 +356,11 @@ impl CharmSource {
         };
 
         Ok(Self {
+            source,
             config,
             layers,
             metadata,
             framework,
-            source,
         })
     }
 
