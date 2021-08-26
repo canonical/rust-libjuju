@@ -4,7 +4,7 @@ applications:
   foo:
     charm: cs:foo
     source: ./foo
-    scale: 1
+    scale: !!int "1"
     annotations:
       gui-x: '0'
       gui-y: '0'

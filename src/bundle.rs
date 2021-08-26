@@ -99,7 +99,7 @@ pub struct Application {
 
     /// Whether the application requires access to cloud credentials
     #[serde(default)]
-    pub requires_trust: bool,
+    pub trust: bool,
 
     /// Resources to make available to the application
     ///

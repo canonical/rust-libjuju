@@ -3,7 +3,7 @@
 use std::collections::HashMap;
 use std::env::current_dir;
 use std::io::Read;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use ex::fs::{read, File};
 use serde_derive::{Deserialize, Serialize};
@@ -287,9 +287,8 @@ pub struct CharmSource {
     /// The charming framework used
     pub framework: Framework,
 }
-
 impl CharmSource {
-    fn load_dir(source: PathBuf) -> Result<Self, JujuError> {
+    fn load_dir(source: &Path) -> Result<Self, JujuError> {
         // Deserialize the layers.yaml and config.yaml files, if they exist.
         // Operator charms don't have layers.yaml, and charms with no config
         // don't need config.yaml. metadata.yaml is necessary, so we can assume
@@ -310,7 +309,7 @@ impl CharmSource {
         };
 
         Ok(Self {
-            source,
+            source: source.into(),
             config,
             layers,
             metadata,
@@ -318,8 +317,8 @@ impl CharmSource {
         })
     }
 
-    fn load_zip(source: PathBuf) -> Result<Self, JujuError> {
-        let mut archive = ZipArchive::new(File::open(source.clone())?)?;
+    fn load_zip(source: &Path) -> Result<Self, JujuError> {
+        let mut archive = ZipArchive::new(File::open(source)?)?;
         // Deserialize the layers.yaml and config.yaml files, if they exist.
         // Operator charms don't have layers.yaml, and charms with no config
         // don't need config.yaml. metadata.yaml is necessary, so we can assume
@@ -356,7 +355,7 @@ impl CharmSource {
         };
 
         Ok(Self {
-            source,
+            source: source.into(),
             config,
             layers,
             metadata,
@@ -365,9 +364,7 @@ impl CharmSource {
     }
 
     /// Load a charm from its source directory
-    pub fn load<P: Into<PathBuf>>(path: P) -> Result<Self, JujuError> {
-        let source = path.into();
-
+    pub fn load(source: &Path) -> Result<Self, JujuError> {
         if source.is_file() {
             Self::load_zip(source)
         } else {

@@ -388,7 +388,7 @@ mod tests {
             revision: Some(42),
         };
 
-        let serialized = "---\n\"cs:~foo-foo/bar-bar-42\"";
+        let serialized = "---\n\"cs:~foo-foo/bar-bar-42\"\n";
 
         assert_eq!(&to_string(&charm_url).unwrap()[..], serialized);
 
