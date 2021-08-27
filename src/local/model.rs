@@ -23,8 +23,9 @@ pub enum Model {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields, rename_all = "kebab-case")]
 pub struct Models {
+    #[serde(default)]
     pub models: HashMap<String, Model>,
-    pub current_model: String,
+    pub current_model: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -64,16 +65,16 @@ impl ModelYaml {
                 }
             }
             None => {
-                let split = models
-                    .current_model
-                    .splitn(2, '/')
-                    .map(String::from)
-                    .collect::<Vec<_>>();
+                if let Some(model) = &models.current_model {
+                    let split = model.splitn(2, '/').map(String::from).collect::<Vec<_>>();
 
-                split
-                    .get(1)
-                    .cloned()
-                    .ok_or_else(|| JujuError::UnknownModel(controller.to_string()))
+                    split
+                        .get(1)
+                        .cloned()
+                        .ok_or_else(|| JujuError::UnknownModel(controller.to_string()))
+                } else {
+                    Err(JujuError::UnknownModel(controller.to_string()))
+                }
             }
         }
     }

@@ -133,12 +133,9 @@ impl CharmSource {
     }
 
     pub fn artifact_path(&self) -> CharmURL {
-        CharmURL::from_path(
-            current_dir()
-                .unwrap()
-                .join(&format!("{}_ubuntu-20.04-amd64", self.metadata.name))
-                .with_extension("charm"),
-        )
+        let mut path = current_dir().unwrap();
+        path.push(&format!("{}_ubuntu-20.04-amd64.charm", self.metadata.name));
+        CharmURL::from_path(path)
     }
 
     /// Push the charm to the charm store, and return the revision URL
