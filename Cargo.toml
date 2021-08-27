@@ -16,10 +16,6 @@ nom = "5.0"
 reqwest = { version = "0.9", default-features = false, features = ["rustls-tls"] }
 serde = "1.0"
 serde_derive = "1.0"
-# serde_yaml = "0.8"
-# Using patched copy until this is resolved:
-# https://github.com/chyh1990/yaml-rust/issues/140
-# https://github.com/dtolnay/serde-yaml/pull/210
-serde_yaml = { git = "https://github.com/knkski/serde-yaml.git", branch = "scalar-tags-quoted" }
+serde_yaml = "0.8"
 tempfile = "3.1"
 zip = "0.5"

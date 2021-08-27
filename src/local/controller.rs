@@ -76,7 +76,7 @@ impl ControllerYaml {
     }
 
     pub fn load_from_bytes(bytes: &[u8]) -> Result<Self, JujuError> {
-        Ok(from_slice(&bytes)?)
+        Ok(from_slice(bytes)?)
     }
 
     pub fn get(&self, name: Option<&str>) -> Result<&Controller, JujuError> {

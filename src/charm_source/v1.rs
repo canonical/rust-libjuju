@@ -328,7 +328,7 @@ impl CharmSource {
             .map(|mut zf| -> Result<_, JujuError> {
                 let mut buf = String::new();
                 zf.read_to_string(&mut buf)?;
-                Ok(from_slice(&buf.as_bytes())?)
+                Ok(from_slice(buf.as_bytes())?)
             })
             .unwrap_or(Ok(None))?;
 
@@ -337,7 +337,7 @@ impl CharmSource {
             .map(|mut zf| -> Result<_, JujuError> {
                 let mut buf = String::new();
                 zf.read_to_string(&mut buf)?;
-                Ok(from_slice(&buf.as_bytes())?)
+                Ok(from_slice(buf.as_bytes())?)
             })
             .unwrap_or(Ok(None))?;
 
@@ -345,7 +345,7 @@ impl CharmSource {
             let mut zf = archive.by_name("metadata.yaml")?;
             let mut buf = String::new();
             zf.read_to_string(&mut buf)?;
-            from_slice(&buf.as_bytes())?
+            from_slice(buf.as_bytes())?
         };
 
         let framework = if archive.by_name("reactive").is_ok() {
