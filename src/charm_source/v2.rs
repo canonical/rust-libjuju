@@ -61,6 +61,23 @@ pub struct Resource {
     pub upstream_source: Option<String>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(deny_unknown_fields, rename_all = "kebab-case")]
+pub enum RelationScope {
+    Global,
+    Container,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields, rename_all = "kebab-case")]
+pub struct Interface {
+    pub interface: String,
+    pub scope: Option<RelationScope>,
+    pub schema: Option<String>,
+    #[serde(default)]
+    pub versions: Vec<String>,
+}
+
 /// A charm's metadata.yaml file
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields, rename_all = "kebab-case")]
@@ -81,6 +98,14 @@ pub struct Metadata {
     /// Resources for the charm
     #[serde(default)]
     pub resources: HashMap<String, Resource>,
+
+    /// Which other charms this charm requires a relation to in order to run
+    #[serde(default)]
+    pub requires: HashMap<String, Interface>,
+
+    /// Which types of relations this charm provides
+    #[serde(default)]
+    pub provides: HashMap<String, Interface>,
 }
 
 /// A charm, as represented by the source directory
@@ -125,11 +150,15 @@ impl CharmSource {
     }
 
     /// Build the charm from its source directory
-    pub fn build(&self, _name: &str) -> Result<(), JujuError> {
-        cmd::run(
-            "charmcraft",
-            &["build", "-f", &self.source.to_string_lossy()],
-        )
+    pub fn build(&self, destructive_mode: bool) -> Result<(), JujuError> {
+        let source = self.source.to_string_lossy();
+        let mut args = vec!["pack", "-p", &source];
+
+        if destructive_mode {
+            args.push("--destructive-mode")
+        }
+
+        cmd::run("charmcraft", &args)
     }
 
     pub fn artifact_path(&self) -> CharmURL {

@@ -4,6 +4,7 @@ use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 
 use ex::fs::{read, write};
+use rayon::prelude::*;
 use serde_derive::{Deserialize, Serialize};
 use serde_yaml::{from_slice, from_str, to_vec};
 
@@ -13,6 +14,7 @@ use crate::charm_url::CharmURL;
 use crate::cmd;
 use crate::cmd::get_output;
 use crate::error::JujuError;
+use crate::paths;
 use crate::series::Series;
 use crate::store::Resource;
 
@@ -103,7 +105,7 @@ pub struct Application {
 
     /// Resources to make available to the application
     ///
-    /// See https://docs.jujucharms.com/2.5/en/charms-resources for more info
+    /// See <https://juju.is/docs/sdk/resources> for more info
     #[serde(default)]
     pub resources: HashMap<String, String>,
 
@@ -191,6 +193,7 @@ impl Application {
             let paths = [
                 root.join("./").join(name),
                 root.join("./charms/").join(name),
+                root.join("./operators/").join(name),
             ];
 
             for path in &paths {
@@ -357,6 +360,85 @@ impl Bundle {
         for (name, app) in &self.applications {
             app.upgrade(name)?;
         }
+
+        Ok(())
+    }
+
+    pub fn build(
+        &mut self,
+        path: &str,
+        apps: Vec<String>,
+        exceptions: Vec<String>,
+        destructive_mode: bool,
+    ) -> Result<(), JujuError> {
+        let applications = self.app_subset(apps, exceptions)?;
+        let build_count = applications
+            .iter()
+            .filter(|(name, app)| app.source(name, path).is_some())
+            .count();
+
+        println!("Found {} total applications", applications.len());
+        println!("Found {} applications to build.\n", build_count);
+
+        let app_names = applications.keys().map(String::as_ref).collect();
+        // Filter out relations that point to an application that was filtered out
+        self.relations.retain(|rels| {
+            // Strip out interface name-style syntax before filtering,
+            // e.g. `foo:bar` => `foo`.
+            rels.iter()
+                .map(|r| r.split(':').next().unwrap())
+                .collect::<HashSet<_>>()
+                .is_subset(&app_names)
+        });
+
+        let mapped: Result<HashMap<String, Application>, JujuError> = applications
+            .par_iter()
+            .map(|(name, application)| {
+                let mut new_application = application.clone();
+
+                let source = application.source(name, path);
+                new_application.charm = match (&application.charm, source) {
+                    // Either `charm` or `source` must be set
+                    (None, None) => {
+                        return Err(JujuError::MissingSourceError(name.into()));
+                    }
+
+                    // If the charm source was defined and either the `--build` flag was passed, or
+                    // if there's no `charm` property, build the charm
+                    (_, Some(source)) => {
+                        println!("Building {}", name);
+
+                        // If `source` starts with `.`, it's a relative path from the bundle we're
+                        // deploying. Otherwise, look in `CHARM_SOURCE_DIR` for it.
+                        let charm_path = if source.starts_with('.') {
+                            PathBuf::from(path).parent().unwrap().join(source)
+                        } else {
+                            paths::charm_source_dir().join(source)
+                        };
+
+                        let charm = CharmSource::load(&charm_path)?;
+
+                        match charm {
+                            CharmSource::V1(_) => charm.build(name, false)?,
+                            CharmSource::V2(_) => charm.build("", destructive_mode)?,
+                        }
+
+                        new_application.resources =
+                            charm.resources_with_defaults(&new_application.resources)?;
+
+                        Some(charm.artifact_path())
+                    }
+
+                    // If a charm URL was defined and charm source isn't available
+                    // locally, use the charm URL
+                    (Some(charm), None) => Some(charm.clone()),
+                };
+
+                Ok((name.clone(), new_application))
+            })
+            .collect();
+
+        self.applications = mapped?;
 
         Ok(())
     }

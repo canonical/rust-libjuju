@@ -27,13 +27,17 @@ impl CharmSource {
     }
 
     /// Build the charm from its source directory
-    pub fn build(&self, name: &str) -> Result<(), JujuError> {
+    ///
+    /// `name` is used for V1 charms, `destructive_mode` is used for V2
+    /// charms. Each argument is ignored by the other charm version.
+    pub fn build(&self, name: &str, destructive_mode: bool) -> Result<(), JujuError> {
         match self {
             CharmSource::V1(cs) => cs.build(name),
-            CharmSource::V2(cs) => cs.build(name),
+            CharmSource::V2(cs) => cs.build(destructive_mode),
         }
     }
 
+    ///
     pub fn artifact_path(&self) -> CharmURL {
         match self {
             CharmSource::V1(cs) => cs.artifact_path(),

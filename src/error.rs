@@ -60,6 +60,9 @@ pub enum JujuError {
 
     #[fail(display = "Error charm URL prefix: {}", _0)]
     UnknownCharmURLError(String),
+
+    #[fail(display = "Missing charm name or source for {}", _0)]
+    MissingSourceError(String),
 }
 
 impl From<IOError> for JujuError {
