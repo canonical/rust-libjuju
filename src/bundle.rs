@@ -287,39 +287,26 @@ impl Bundle {
         Ok(())
     }
 
-    /// Get a subset of the applications in this bundle
-    ///
-    /// Returns a copy of `self.applications` with only the given applications
-    /// in it.
-    pub fn app_subset(
-        &self,
-        names: Vec<String>,
-        exceptions: Vec<String>,
-    ) -> Result<HashMap<String, Application>, JujuError> {
+    /// Updates bundle to use subset of applications
+    pub fn limit_apps(&mut self, names: &[String], exceptions: &[String]) -> Result<(), JujuError> {
         if names.is_empty() {
-            return Ok(self.applications.clone());
+            return Ok(());
         }
 
-        let keys: HashSet<_> = self.applications.keys().cloned().collect();
-        let names: HashSet<_> = names.into_iter().collect();
-        let exceptions: HashSet<_> = exceptions.into_iter().collect();
-        let diff: Vec<String> = names.difference(&keys).cloned().collect();
+        self.applications
+            .retain(|k, _| names.contains(&k) && !exceptions.contains(&k));
 
-        if diff.is_empty() {
-            Ok(self
-                .applications
-                .iter()
-                .filter_map(|(k, v)| {
-                    if names.contains(k.as_str()) && !exceptions.contains(k.as_str()) {
-                        Some((k.clone(), v.clone()))
-                    } else {
-                        None
-                    }
-                })
-                .collect())
-        } else {
-            Err(JujuError::ApplicationNotFound(diff.join(", ")))
-        }
+        // Filter out relations that point to an application that was filtered out
+        let apps: HashSet<_> = self.applications.keys().collect();
+        self.relations.retain(|rels| {
+            // Strip out interface name-style syntax before filtering,
+            // e.g. `foo:bar` => `foo`.
+            rels.iter()
+                .map(|r| r.split(':').next().unwrap().to_string())
+                .all(|r| apps.contains(&r))
+        });
+
+        Ok(())
     }
 
     /// Pushes bundle to charm store or charmhub
@@ -367,76 +354,58 @@ impl Bundle {
     pub fn build(
         &mut self,
         path: &str,
-        apps: Vec<String>,
-        exceptions: Vec<String>,
         destructive_mode: bool,
+        parallel_build: bool,
     ) -> Result<(), JujuError> {
-        let applications = self.app_subset(apps, exceptions)?;
-        let build_count = applications
-            .iter()
-            .filter(|(name, app)| app.source(name, path).is_some())
-            .count();
+        let map = |(name, application): (&String, &Application)| {
+            let mut new_application = application.clone();
 
-        println!("Found {} total applications", applications.len());
-        println!("Found {} applications to build.\n", build_count);
+            let source = application.source(name, path);
+            new_application.charm = match (&application.charm, source) {
+                // Either `charm` or `source` must be set
+                (None, None) => {
+                    return Err(JujuError::MissingSourceError(name.into()));
+                }
 
-        let app_names = applications.keys().map(String::as_ref).collect();
-        // Filter out relations that point to an application that was filtered out
-        self.relations.retain(|rels| {
-            // Strip out interface name-style syntax before filtering,
-            // e.g. `foo:bar` => `foo`.
-            rels.iter()
-                .map(|r| r.split(':').next().unwrap())
-                .collect::<HashSet<_>>()
-                .is_subset(&app_names)
-        });
+                // If the charm source was defined and either the `--build` flag was passed, or
+                // if there's no `charm` property, build the charm
+                (_, Some(source)) => {
+                    println!("Building {}", name);
 
-        let mapped: Result<HashMap<String, Application>, JujuError> = applications
-            .par_iter()
-            .map(|(name, application)| {
-                let mut new_application = application.clone();
+                    // If `source` starts with `.`, it's a relative path from the bundle we're
+                    // deploying. Otherwise, look in `CHARM_SOURCE_DIR` for it.
+                    let charm_path = if source.starts_with('.') {
+                        PathBuf::from(path).parent().unwrap().join(source)
+                    } else {
+                        paths::charm_source_dir().join(source)
+                    };
 
-                let source = application.source(name, path);
-                new_application.charm = match (&application.charm, source) {
-                    // Either `charm` or `source` must be set
-                    (None, None) => {
-                        return Err(JujuError::MissingSourceError(name.into()));
+                    let charm = CharmSource::load(&charm_path)?;
+
+                    match charm {
+                        CharmSource::V1(_) => charm.build(name, false)?,
+                        CharmSource::V2(_) => charm.build("", destructive_mode)?,
                     }
 
-                    // If the charm source was defined and either the `--build` flag was passed, or
-                    // if there's no `charm` property, build the charm
-                    (_, Some(source)) => {
-                        println!("Building {}", name);
+                    new_application.resources =
+                        charm.resources_with_defaults(&new_application.resources)?;
 
-                        // If `source` starts with `.`, it's a relative path from the bundle we're
-                        // deploying. Otherwise, look in `CHARM_SOURCE_DIR` for it.
-                        let charm_path = if source.starts_with('.') {
-                            PathBuf::from(path).parent().unwrap().join(source)
-                        } else {
-                            paths::charm_source_dir().join(source)
-                        };
+                    Some(charm.artifact_path())
+                }
 
-                        let charm = CharmSource::load(&charm_path)?;
+                // If a charm URL was defined and charm source isn't available
+                // locally, use the charm URL
+                (Some(charm), None) => Some(charm.clone()),
+            };
 
-                        match charm {
-                            CharmSource::V1(_) => charm.build(name, false)?,
-                            CharmSource::V2(_) => charm.build("", destructive_mode)?,
-                        }
+            Ok((name.clone(), new_application))
+        };
 
-                        new_application.resources =
-                            charm.resources_with_defaults(&new_application.resources)?;
-
-                        Some(charm.artifact_path())
-                    }
-
-                    // If a charm URL was defined and charm source isn't available
-                    // locally, use the charm URL
-                    (Some(charm), None) => Some(charm.clone()),
-                };
-
-                Ok((name.clone(), new_application))
-            })
-            .collect();
+        let mapped: Result<HashMap<String, Application>, JujuError> = if parallel_build {
+            self.applications.par_iter().map(map).collect()
+        } else {
+            self.applications.iter().map(map).collect()
+        };
 
         self.applications = mapped?;
 

@@ -8,6 +8,7 @@ use crate::channel::Channel;
 use crate::charm_url::CharmURL;
 use crate::error::JujuError;
 
+#[derive(Debug)]
 pub enum CharmSource {
     V1(v1::CharmSource),
     V2(v2::CharmSource),

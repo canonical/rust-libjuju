@@ -1,10 +1,12 @@
 use std::collections::HashMap;
 use std::env::current_dir;
+use std::io::Read;
 use std::path::{Path, PathBuf};
 
-use ex::fs::read;
+use ex::fs::{read, File};
 use serde_derive::{Deserialize, Serialize};
 use serde_yaml::from_slice;
+use zip::ZipArchive;
 
 use crate::channel::Channel;
 use crate::charm_url::CharmURL;
@@ -136,8 +138,29 @@ impl CharmSource {
         })
     }
 
-    fn load_zip(_source: &Path) -> Result<Self, JujuError> {
-        unimplemented!();
+    fn load_zip(source: &Path) -> Result<Self, JujuError> {
+        let mut archive = ZipArchive::new(File::open(source)?)?;
+        let config: Option<Config> = archive
+            .by_name("config.yaml")
+            .map(|mut zf| -> Result<_, JujuError> {
+                let mut buf = String::new();
+                zf.read_to_string(&mut buf)?;
+                Ok(from_slice(buf.as_bytes())?)
+            })
+            .unwrap_or(Ok(None))?;
+
+        let metadata = {
+            let mut zf = archive.by_name("metadata.yaml")?;
+            let mut buf = String::new();
+            zf.read_to_string(&mut buf)?;
+            from_slice(buf.as_bytes())?
+        };
+
+        Ok(Self {
+            source: source.into(),
+            config,
+            metadata,
+        })
     }
 
     /// Load a charm from its source directory
