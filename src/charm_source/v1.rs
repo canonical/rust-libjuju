@@ -373,7 +373,7 @@ impl CharmSource {
     }
 
     /// Build the charm from its source directory
-    pub fn build(&self, name: &str) -> Result<(), JujuError> {
+    pub fn build(&self, name: &str, destructive_mode: bool) -> Result<(), JujuError> {
         match self.framework {
             Framework::Reactive => cmd::run(
                 "charm",
@@ -384,10 +384,14 @@ impl CharmSource {
                     &self.source.to_string_lossy(),
                 ],
             ),
-            Framework::Operator => cmd::run(
-                "charmcraft",
-                &["build", "-f", &self.source.to_string_lossy()],
-            ),
+            Framework::Operator => {
+                let source = self.source.to_string_lossy();
+                let mut args = vec!["pack", "-p", &source];
+                if destructive_mode {
+                    args.push("--destructive-mode")
+                }
+                cmd::run("charmcraft", &args)
+            }
         }
     }
 

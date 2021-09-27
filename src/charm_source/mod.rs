@@ -29,11 +29,11 @@ impl CharmSource {
 
     /// Build the charm from its source directory
     ///
-    /// `name` is used for V1 charms, `destructive_mode` is used for V2
-    /// charms. Each argument is ignored by the other charm version.
+    /// `name` is used for V1 charms, `destructive_mode` is used for both V1 and V2
+    /// charms, though for V1 Operator charms only, not Reactive charms.
     pub fn build(&self, name: &str, destructive_mode: bool) -> Result<(), JujuError> {
         match self {
-            CharmSource::V1(cs) => cs.build(name),
+            CharmSource::V1(cs) => cs.build(name, destructive_mode),
             CharmSource::V2(cs) => cs.build(destructive_mode),
         }
     }
