@@ -294,7 +294,7 @@ impl Bundle {
         }
 
         self.applications
-            .retain(|k, _| names.contains(&k) && !exceptions.contains(&k));
+            .retain(|k, _| names.contains(k) && !exceptions.contains(k));
 
         // Filter out relations that point to an application that was filtered out
         let apps: HashSet<_> = self.applications.keys().collect();
