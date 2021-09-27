@@ -400,12 +400,11 @@ impl CharmSource {
             Framework::Reactive => {
                 CharmURL::from_path(paths::charm_build_dir().join(&self.metadata.name))
             }
-            Framework::Operator => CharmURL::from_path(
-                current_dir()
-                    .unwrap()
-                    .join(&self.metadata.name)
-                    .with_extension("charm"),
-            ),
+            Framework::Operator => {
+                let mut path = current_dir().unwrap();
+                path.push(&format!("{}_ubuntu-20.04-amd64.charm", self.metadata.name));
+                CharmURL::from_path(path)
+            }
         }
     }
 
