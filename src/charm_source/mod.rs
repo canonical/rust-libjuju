@@ -1,5 +1,6 @@
-pub mod v1;
-pub mod v2;
+pub mod operator;
+pub mod reactive;
+pub mod sidecar;
 
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -10,39 +11,44 @@ use crate::error::JujuError;
 
 #[derive(Debug)]
 pub enum CharmSource {
-    V1(v1::CharmSource),
-    V2(v2::CharmSource),
+    Reactive(reactive::CharmSource),
+    Operator(operator::CharmSource),
+    Sidecar(sidecar::CharmSource),
 }
 
 impl CharmSource {
     /// Load a charm from its source directory
     pub fn load<P: Into<PathBuf>>(path: P) -> Result<Self, JujuError> {
         let path = path.into();
-        match v1::CharmSource::load(&path) {
-            Ok(cs) => Ok(CharmSource::V1(cs)),
-            Err(_) => match v2::CharmSource::load(&path) {
-                Ok(cs) => Ok(CharmSource::V2(cs)),
-                Err(err) => Err(err),
-            },
+        if let Ok(cs) = reactive::CharmSource::load(&path) {
+            return Ok(CharmSource::Reactive(cs));
         }
+
+        if let Ok(cs) = operator::CharmSource::load(&path) {
+            return Ok(CharmSource::Operator(cs));
+        }
+
+        Ok(CharmSource::Sidecar(sidecar::CharmSource::load(&path)?))
     }
 
     /// Build the charm from its source directory
     ///
-    /// `name` is used for V1 charms, `destructive_mode` is used for both V1 and V2
-    /// charms, though for V1 Operator charms only, not Reactive charms.
+    /// `name` is used for `Reactive` charms, `destructive_mode` is used for `Operator`
+    /// and `Sidecar` charms.
     pub fn build(&self, name: &str, destructive_mode: bool) -> Result<(), JujuError> {
         match self {
-            CharmSource::V1(cs) => cs.build(name, destructive_mode),
-            CharmSource::V2(cs) => cs.build(destructive_mode),
+            CharmSource::Reactive(cs) => cs.build(name),
+            CharmSource::Operator(cs) => cs.build(destructive_mode),
+            CharmSource::Sidecar(cs) => cs.build(destructive_mode),
         }
     }
 
-    ///
+    /// Returns path of built artifact
     pub fn artifact_path(&self) -> CharmURL {
         match self {
-            CharmSource::V1(cs) => cs.artifact_path(),
-            CharmSource::V2(cs) => cs.artifact_path(),
+            CharmSource::Reactive(cs) => cs.artifact_path(),
+            CharmSource::Operator(cs) => cs.artifact_path(),
+            CharmSource::Sidecar(cs) => cs.artifact_path(),
         }
     }
 
@@ -53,16 +59,18 @@ impl CharmSource {
         resources: &HashMap<String, String>,
     ) -> Result<String, JujuError> {
         match self {
-            CharmSource::V1(cs) => cs.push(cs_url, resources),
-            CharmSource::V2(cs) => cs.push(cs_url, resources),
+            CharmSource::Reactive(cs) => cs.push(cs_url, resources),
+            CharmSource::Operator(cs) => cs.push(cs_url, resources),
+            CharmSource::Sidecar(cs) => cs.push(cs_url, resources),
         }
     }
 
     /// Promote a charm from unpublished to the given channel
     pub fn promote(&self, rev_url: &str, to: Channel) -> Result<(), JujuError> {
         match self {
-            CharmSource::V1(cs) => cs.promote(rev_url, to),
-            CharmSource::V2(cs) => cs.promote(rev_url, to),
+            CharmSource::Reactive(cs) => cs.promote(rev_url, to),
+            CharmSource::Operator(cs) => cs.promote(rev_url, to),
+            CharmSource::Sidecar(cs) => cs.promote(rev_url, to),
         }
     }
 
@@ -72,8 +80,9 @@ impl CharmSource {
         configured: &HashMap<String, String>,
     ) -> Result<HashMap<String, String>, JujuError> {
         match self {
-            CharmSource::V1(cs) => cs.resources_with_defaults(configured),
-            CharmSource::V2(cs) => cs.resources_with_defaults(configured),
+            CharmSource::Reactive(cs) => cs.resources_with_defaults(configured),
+            CharmSource::Operator(cs) => cs.resources_with_defaults(configured),
+            CharmSource::Sidecar(cs) => cs.resources_with_defaults(configured),
         }
     }
 }

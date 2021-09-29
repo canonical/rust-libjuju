@@ -354,13 +354,20 @@ impl Bundle {
     pub fn build(
         &mut self,
         path: &str,
+        build_apps: Option<HashMap<String, Option<String>>>,
         destructive_mode: bool,
         parallel_build: bool,
     ) -> Result<(), JujuError> {
         let map = |(name, application): (&String, &Application)| {
             let mut new_application = application.clone();
 
-            let source = application.source(name, path);
+            let source = match &build_apps {
+                Some(app) => app
+                    .get(name)
+                    .cloned()
+                    .and_then(|source| source.or_else(|| application.source(name, path))),
+                None => application.source(name, path),
+            };
             new_application.charm = match (&application.charm, source) {
                 // Either `charm` or `source` must be set
                 (None, None) => {
@@ -382,10 +389,7 @@ impl Bundle {
 
                     let charm = CharmSource::load(&charm_path)?;
 
-                    match charm {
-                        CharmSource::V1(_) => charm.build(name, false)?,
-                        CharmSource::V2(_) => charm.build("", destructive_mode)?,
-                    }
+                    charm.build(name, destructive_mode)?;
 
                     new_application.resources =
                         charm.resources_with_defaults(&new_application.resources)?;

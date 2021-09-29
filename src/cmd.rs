@@ -6,6 +6,7 @@ use crate::error::JujuError;
 pub fn run<S: AsRef<OsStr>>(cmd: &str, args: &[S]) -> Result<(), JujuError> {
     let status = Command::new(cmd)
         .args(args)
+        .env("CHARMCRAFT_DEVELOPER", "y")
         .spawn()
         .map_err(|err| JujuError::SubcommandError(cmd.to_string(), err.to_string()))?
         .wait()

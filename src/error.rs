@@ -63,6 +63,9 @@ pub enum JujuError {
 
     #[fail(display = "Missing charm name or source for {}", _0)]
     MissingSourceError(String),
+
+    #[fail(display = "Wrong charm type")]
+    WrongCharmTypeError,
 }
 
 impl From<IOError> for JujuError {
