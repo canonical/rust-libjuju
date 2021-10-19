@@ -5,7 +5,6 @@ pub mod sidecar;
 use std::collections::HashMap;
 use std::path::PathBuf;
 
-use crate::channel::Channel;
 use crate::charm_url::CharmURL;
 use crate::error::JujuError;
 
@@ -52,25 +51,33 @@ impl CharmSource {
         }
     }
 
-    /// Push the charm to the charm store, and return the revision URL
-    pub fn push(
+    pub fn upload_charm_store(
         &self,
-        cs_url: &str,
+        url: &str,
         resources: &HashMap<String, String>,
+        to: &[String],
+        destructive_mode: bool,
     ) -> Result<String, JujuError> {
         match self {
-            CharmSource::Reactive(cs) => cs.push(cs_url, resources),
-            CharmSource::Operator(cs) => cs.push(cs_url, resources),
-            CharmSource::Sidecar(cs) => cs.push(cs_url, resources),
+            CharmSource::Reactive(cs) => cs.upload_charm_store(url, resources, to),
+            CharmSource::Operator(cs) => {
+                cs.upload_charm_store(url, resources, to, destructive_mode)
+            }
+            CharmSource::Sidecar(cs) => cs.upload_charm_store(url, resources, to, destructive_mode),
         }
     }
 
-    /// Promote a charm from unpublished to the given channel
-    pub fn promote(&self, rev_url: &str, to: Channel) -> Result<(), JujuError> {
+    pub fn upload_charmhub(
+        &self,
+        url: &str,
+        resources: &HashMap<String, String>,
+        to: &[String],
+        destructive_mode: bool,
+    ) -> Result<String, JujuError> {
         match self {
-            CharmSource::Reactive(cs) => cs.promote(rev_url, to),
-            CharmSource::Operator(cs) => cs.promote(rev_url, to),
-            CharmSource::Sidecar(cs) => cs.promote(rev_url, to),
+            CharmSource::Reactive(cs) => cs.upload_charmhub(url, resources, to),
+            CharmSource::Operator(cs) => cs.upload_charmhub(url, resources, to, destructive_mode),
+            CharmSource::Sidecar(cs) => cs.upload_charmhub(url, resources, to, destructive_mode),
         }
     }
 

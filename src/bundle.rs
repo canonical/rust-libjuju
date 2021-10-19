@@ -2,6 +2,7 @@
 
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
+use std::str::FromStr;
 
 use ex::fs::{read, write};
 use rayon::prelude::*;
@@ -185,24 +186,143 @@ impl Application {
     /// or implicit in the existence of a `./charms/foo` directory, relative
     /// to `bundle.yaml`.
     pub fn source(&self, name: &str, bundle_path: &str) -> Option<String> {
-        if self.source.is_some() {
-            self.source.clone()
-        } else {
-            let root = PathBuf::from(bundle_path);
-            let root = root.parent().unwrap();
-            let paths = [
-                root.join("./").join(name),
-                root.join("./charms/").join(name),
-                root.join("./operators/").join(name),
-            ];
+        match &self.source {
+            Some(s) => Some(s.clone()),
+            None => {
+                let root = PathBuf::from(bundle_path);
+                let root = root.parent().unwrap();
+                let paths = [
+                    root.join("./").join(name),
+                    root.join("./charms/").join(name),
+                    root.join("./operators/").join(name),
+                ];
 
-            for path in &paths {
-                if path.exists() {
-                    return Some(path.to_string_lossy().to_string());
+                for path in &paths {
+                    if path.exists() {
+                        return Some(path.to_string_lossy().to_string());
+                    }
                 }
-            }
 
-            None
+                None
+            }
+        }
+    }
+
+    pub fn upload_charm_store(
+        &self,
+        name: &str,
+        publish_namespace: Option<String>,
+        bundle_path: &str,
+        channels: &[String],
+        destructive_mode: bool,
+    ) -> Result<String, JujuError> {
+        let name = self
+            .charm
+            .as_ref()
+            .map(|c| c.name.as_ref())
+            .unwrap_or(name)
+            .to_string();
+        let source = self.source(&name, bundle_path);
+
+        let charm = self
+            .charm
+            .as_ref()
+            .ok_or(JujuError::UnknownCharmURLError(name))?;
+
+        let cs_url = charm
+            .with_namespace(publish_namespace)
+            .with_store(Some("cs".into()));
+
+        match &source {
+            Some(source) => {
+                // If `source` starts with `.`, it's a relative path from the bundle we're
+                // deploying. Otherwise, look in `CHARM_SOURCE_DIR` for it.
+                let charm_path = if source.starts_with('.') {
+                    PathBuf::from(bundle_path).parent().unwrap().join(source)
+                } else {
+                    paths::charm_source_dir().join(source)
+                };
+
+                let charm = CharmSource::load(&charm_path)?;
+
+                let rev_url = charm.upload_charm_store(
+                    &cs_url.to_string(),
+                    &self.resources,
+                    channels,
+                    destructive_mode,
+                )?;
+                Ok(rev_url)
+            }
+            None => {
+                let channel = self
+                    .channel
+                    .as_ref()
+                    .map(|c| Channel::from_str(c))
+                    .transpose()?
+                    .unwrap_or(Channel::Stable);
+
+                let revision = charm.show(channel)?.id_revision.revision;
+                Ok(charm.with_revision(Some(revision)).to_string())
+            }
+        }
+    }
+
+    pub fn upload_charmhub(
+        &self,
+        name: &str,
+        publish_namespace: Option<String>,
+        bundle_path: &str,
+        channels: &[String],
+        destructive_mode: bool,
+    ) -> Result<String, JujuError> {
+        let name = self
+            .charm
+            .as_ref()
+            .map(|c| c.name.as_ref())
+            .unwrap_or(name)
+            .to_string();
+        let source = self.source(&name, bundle_path);
+
+        let charm = self
+            .charm
+            .as_ref()
+            .ok_or(JujuError::UnknownCharmURLError(name))?;
+
+        let cs_url = charm
+            .with_namespace(publish_namespace)
+            .with_store(Some("cs".into()));
+
+        match &source {
+            Some(source) => {
+                // If `source` starts with `.`, it's a relative path from the bundle we're
+                // deploying. Otherwise, look in `CHARM_SOURCE_DIR` for it.
+                let charm_path = if source.starts_with('.') {
+                    PathBuf::from(bundle_path).parent().unwrap().join(source)
+                } else {
+                    paths::charm_source_dir().join(source)
+                };
+
+                let charm = CharmSource::load(&charm_path)?;
+
+                let rev_url = charm.upload_charmhub(
+                    &cs_url.to_string(),
+                    &self.resources,
+                    channels,
+                    destructive_mode,
+                )?;
+                Ok(rev_url)
+            }
+            None => {
+                let channel = self
+                    .channel
+                    .as_ref()
+                    .map(|c| Channel::from_str(c))
+                    .transpose()?
+                    .unwrap_or(Channel::Stable);
+
+                let revision = charm.show(channel)?.id_revision.revision;
+                Ok(charm.with_revision(Some(revision)).to_string())
+            }
         }
     }
 }
@@ -234,6 +354,7 @@ pub struct Bundle {
     /// Which OS series to use for this bundle
     ///
     /// Either this or `bundle` must be set
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub series: Option<Series>,
 }
 
@@ -309,38 +430,51 @@ impl Bundle {
         Ok(())
     }
 
-    /// Pushes bundle to charm store or charmhub
-    ///
-    /// Releases bundle to edge as well
-    pub fn push(&self, bundle_path: &str, cs_url: &CharmURL) -> Result<(), JujuError> {
-        match cs_url.store.as_deref() {
-            Some("ch") => {
-                cmd::run("charmcraft", &["pack", "-p", bundle_path])?;
+    pub fn upload_charm_store(
+        &self,
+        bundle_path: &str,
+        cs_url: &str,
+        channels: &[String],
+    ) -> Result<(), JujuError> {
+        let output: HashMap<String, String> =
+            from_slice(&cmd::get_output("charm", &["push", bundle_path, cs_url])?)?;
+        let bundle_url = output["url"].clone();
 
-                let zip = PathBuf::from(bundle_path)
-                    .join(&cs_url.name)
-                    .with_extension("zip");
-
-                cmd::get_output(
-                    "charmcraft",
-                    &["upload", &*zip.to_string_lossy(), "--release=edge"],
-                )?;
-            }
-            Some("cs") | None => {
-                let output: HashMap<String, String> = from_slice(&cmd::get_output(
-                    "charm",
-                    &["push", bundle_path, &cs_url.to_string()],
-                )?)?;
-                let bundle_url = output["url"].clone();
-                self.release(&bundle_url, Channel::Edge)?;
-            }
-            Some(url) => return Err(JujuError::UnknownCharmURLError(url.into())),
+        for channel in channels.iter() {
+            self.release(&bundle_url, channel)?;
         }
+
         Ok(())
     }
 
-    pub fn release(&self, bundle_url: &str, to: Channel) -> Result<(), JujuError> {
-        cmd::run("charm", &["release", "--channel", to.into(), bundle_url])
+    pub fn upload_charmhub(
+        &self,
+        bundle_path: &str,
+        cs_url: &CharmURL,
+        channels: &[String],
+    ) -> Result<(), JujuError> {
+        cmd::run("charmcraft", &["pack", "-p", bundle_path])?;
+
+        let zip = PathBuf::from(bundle_path)
+            .join(&cs_url.name)
+            .with_extension("zip");
+
+        let args: Vec<_> = vec!["upload".into(), zip.to_string_lossy().to_string()]
+            .into_iter()
+            .chain(channels.iter().map(|ch| format!("--release={}", ch)))
+            .collect();
+
+        let output = cmd::get_output("charmcraft", &args)?;
+
+        println!("\n// https://github.com/canonical/charmcraft/issues/478");
+        println!("Output from charmcraft upload in case something broke:");
+        println!("{}", String::from_utf8_lossy(&output));
+
+        Ok(())
+    }
+
+    pub fn release(&self, bundle_url: &str, to: &str) -> Result<(), JujuError> {
+        cmd::run("charm", &["release", "--channel", to, bundle_url])
     }
 
     pub fn upgrade_charms(&self) -> Result<(), JujuError> {

@@ -66,6 +66,12 @@ pub enum JujuError {
 
     #[fail(display = "Wrong charm type")]
     WrongCharmTypeError,
+
+    #[fail(display = "{} charms do not support uploading to `cs` URLs", _0)]
+    CharmStoreUnsupported(String),
+
+    #[fail(display = "{} charms do not support uploading to `ch` URLs", _0)]
+    CharmhubUnsupported(String),
 }
 
 impl From<IOError> for JujuError {

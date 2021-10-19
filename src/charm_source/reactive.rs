@@ -9,7 +9,6 @@ use serde_derive::{Deserialize, Serialize};
 use serde_yaml::{from_slice, Value};
 use zip::ZipArchive;
 
-use crate::channel::Channel;
 use crate::charm_url::CharmURL;
 use crate::cmd;
 use crate::error::JujuError;
@@ -278,7 +277,7 @@ pub struct CharmSource {
 
 impl CharmSource {
     fn load_dir(source: &Path) -> Result<Self, JujuError> {
-        if source.join("reactive").exists() {
+        if !source.join("reactive").exists() {
             return Err(JujuError::WrongCharmTypeError);
         }
         // Deserialize the layers.yaml and config.yaml files, if they exist.
@@ -373,11 +372,7 @@ impl CharmSource {
     }
 
     /// Push the charm to the charm store, and return the revision URL
-    pub fn push(
-        &self,
-        cs_url: &str,
-        resources: &HashMap<String, String>,
-    ) -> Result<String, JujuError> {
+    fn push(&self, cs_url: &str, resources: &HashMap<String, String>) -> Result<String, JujuError> {
         let build_dir = paths::charm_build_dir()
             .join(&self.metadata.name)
             .to_string_lossy()
@@ -435,13 +430,13 @@ impl CharmSource {
     }
 
     /// Promote a charm from unpublished to the given channel
-    pub fn promote(&self, rev_url: &str, to: Channel) -> Result<(), JujuError> {
+    fn promote(&self, rev_url: &str, to: &str) -> Result<(), JujuError> {
         let resources: Vec<HashMap<String, String>> = from_slice(&cmd::get_output(
             "charm",
             &["list-resources", rev_url, "--format", "yaml"],
         )?)?;
 
-        let release_args = vec!["release", rev_url, "--channel", to.into()]
+        let release_args = vec!["release", rev_url, "--channel", to]
             .into_iter()
             .map(String::from)
             .chain(resources.iter().flat_map(|r| {
@@ -453,6 +448,31 @@ impl CharmSource {
             .collect::<Vec<_>>();
 
         cmd::run("charm", &release_args)
+    }
+
+    pub fn upload_charm_store(
+        &self,
+        url: &str,
+        resources: &HashMap<String, String>,
+        to: &[String],
+    ) -> Result<String, JujuError> {
+        self.build(&self.metadata.name)?;
+        let rev_url = self.push(url, resources)?;
+
+        for channel in to {
+            self.promote(&rev_url, channel)?;
+        }
+
+        Ok(rev_url)
+    }
+
+    pub fn upload_charmhub(
+        &self,
+        _url: &str,
+        _resources: &HashMap<String, String>,
+        _to: &[String],
+    ) -> Result<String, JujuError> {
+        Err(JujuError::CharmhubUnsupported("reactive".into()))
     }
 
     /// Merge default resources with resources given in e.g. a bundle.yaml

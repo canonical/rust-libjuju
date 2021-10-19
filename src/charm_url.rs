@@ -137,6 +137,13 @@ impl CharmURL {
         }
     }
 
+    pub fn with_store(&self, store: Option<String>) -> Self {
+        CharmURL {
+            store,
+            ..self.clone()
+        }
+    }
+
     pub fn with_namespace(&self, namespace: Option<String>) -> Self {
         CharmURL {
             namespace,
