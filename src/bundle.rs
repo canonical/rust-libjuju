@@ -2,22 +2,18 @@
 
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
-use std::str::FromStr;
 
 use ex::fs::{read, write};
 use rayon::prelude::*;
 use serde_derive::{Deserialize, Serialize};
-use serde_yaml::{from_slice, from_str, to_vec};
+use serde_yaml::{from_slice, to_vec};
 
-use crate::channel::Channel;
 use crate::charm_source::CharmSource;
 use crate::charm_url::CharmURL;
 use crate::cmd;
-use crate::cmd::get_output;
 use crate::error::JujuError;
 use crate::paths;
 use crate::series::Series;
-use crate::store::Resource;
 
 /// Represents a YAML value that doesn't have a pre-determined type
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -147,30 +143,6 @@ pub struct Application {
 }
 
 impl Application {
-    pub fn release(&self, to: Channel) -> Result<(), JujuError> {
-        match &self.charm {
-            Some(charm) => {
-                let resources: Vec<Resource> = from_slice(&get_output(
-                    "charm",
-                    &["list-resources", "--format", "yaml", &charm.to_string()],
-                )?)?;
-
-                let resource_args = resources
-                    .iter()
-                    .map(|res| format!("--resource={}-{}", res.name, res.revision));
-
-                let args = vec!["release", "--channel", to.into(), &charm.to_string()]
-                    .into_iter()
-                    .map(String::from)
-                    .chain(resource_args)
-                    .collect::<Vec<_>>();
-
-                cmd::run("charm", &args)
-            }
-            None => Err(JujuError::ApplicationNotFound("No charm URL set!".into())),
-        }
-    }
-
     pub fn upgrade(&self, name: &str) -> Result<(), JujuError> {
         let source_dir = self
             .charm
@@ -236,11 +208,6 @@ impl Application {
             .to_string();
         let source = self.source(&name, bundle_path);
 
-        let charm = self
-            .charm
-            .as_ref()
-            .ok_or(JujuError::UnknownCharmURLError(name))?;
-
         match &source {
             Some(source) => {
                 // If `source` starts with `.`, it's a relative path from the bundle we're
@@ -257,15 +224,7 @@ impl Application {
                 Ok(rev_url)
             }
             None => {
-                let channel = self
-                    .channel
-                    .as_ref()
-                    .map(|c| Channel::from_str(c))
-                    .transpose()?
-                    .unwrap_or(Channel::Stable);
-
-                let revision = charm.show(channel)?.id_revision.revision;
-                Ok(charm.with_revision(Some(revision)).to_string())
+                unreachable!()
             }
         }
     }
@@ -307,44 +266,6 @@ impl Bundle {
     /// Load a bundle from the given path
     pub fn load<P: Into<PathBuf>>(path: P) -> Result<Self, JujuError> {
         Ok(from_slice(&read(path.into())?)?)
-    }
-
-    /// Load a bundle from the charm store
-    ///
-    /// TODO: Turn this into a more general charm store client
-    pub fn load_from_store(name: &str, channel: Channel) -> Result<(u32, Self), JujuError> {
-        let parsed = CharmURL::parse(name).unwrap();
-        let namespace = match parsed.namespace {
-            Some(n) => n,
-            None => return Err(JujuError::NamespaceRequired(name.into())),
-        };
-
-        let output: HashMap<String, HashMap<String, u32>> = from_slice(&cmd::get_output(
-            "charm",
-            &[
-                "show",
-                name,
-                "--channel",
-                &channel.to_string(),
-                "--format=yaml",
-                "id-revision",
-            ],
-        )?)?;
-
-        let revision = output["id-revision"]["Revision"];
-
-        let bundle_url = format!(
-            "https://api.jujucharms.com/charmstore/v5/~{}/bundle/{}-{}/archive/bundle.yaml",
-            namespace, parsed.name, revision
-        );
-
-        let response = reqwest::get(&bundle_url)?.text()?;
-        let parsed: CharmStoreResponse = from_str(&response)?;
-
-        match parsed {
-            CharmStoreResponse::Bundle(b) => Ok((revision, b)),
-            CharmStoreResponse::Error { message, .. } => Err(JujuError::MacaroonError(message)),
-        }
     }
 
     /// Save this bundle to the given path
@@ -396,10 +317,6 @@ impl Bundle {
         println!("{}", String::from_utf8_lossy(&output));
 
         Ok(())
-    }
-
-    pub fn release(&self, bundle_url: &str, to: &str) -> Result<(), JujuError> {
-        cmd::run("charm", &["release", "--channel", to, bundle_url])
     }
 
     pub fn upgrade_charms(&self) -> Result<(), JujuError> {

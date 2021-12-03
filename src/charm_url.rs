@@ -8,12 +8,6 @@ use nom::combinator::{map_res, opt};
 use nom::sequence::{delimited, preceded, terminated, tuple};
 use nom::{Err as NomErr, IResult, Needed};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use serde_yaml::from_slice;
-
-use crate::channel::Channel;
-use crate::cmd::get_output;
-use crate::error::JujuError;
-use crate::store::Show;
 
 /// Matches a `kebab-case` name that must not start or end with a dash
 fn kebab_case(input: &str) -> IResult<&str, &str> {
@@ -156,21 +150,6 @@ impl CharmURL {
             revision,
             ..self.clone()
         }
-    }
-
-    pub fn show(&self, channel: Channel) -> Result<Show, JujuError> {
-        let output = get_output(
-            "charm",
-            &[
-                "show",
-                &self.to_string(),
-                "--channel",
-                &channel.to_string(),
-                "--format",
-                "yaml",
-            ],
-        )?;
-        Ok(from_slice(&output)?)
     }
 }
 
