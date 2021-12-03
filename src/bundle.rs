@@ -49,6 +49,7 @@ pub struct Annotations {
 pub struct Application {
     /// Arbitrary annotations intepreted by things other than Juju itself
     #[serde(default)]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub annotations: Option<Annotations>,
 
     /// Preferred channel to use when deploying a remote charm
@@ -67,6 +68,7 @@ pub struct Application {
     /// Duplicate of `options`, but Juju doesn't care if both are specified,
     /// which serde doesn't like. So, we copy it here as well.
     #[serde(default)]
+    #[serde(skip_serializing_if = "HashMap::is_empty")]
     pub config: HashMap<String, Value>,
 
     /// Constraints such as `cores=2 mem=4G`
@@ -74,14 +76,17 @@ pub struct Application {
     /// See the [constraints documentation][constraints] for more info
     ///
     /// [constraints]: https://juju.is/docs/olm/constraints
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub constraints: Option<String>,
 
     /// Constraints for devices to assign to units of the application
     #[serde(default)]
+    #[serde(skip_serializing_if = "HashMap::is_empty")]
     pub devices: HashMap<String, String>,
 
     /// Maps how endpoints are bound to spaces
     #[serde(default)]
+    #[serde(skip_serializing_if = "HashMap::is_empty")]
     pub endpoint_bindings: HashMap<String, String>,
 
     /// Whether to expose the application externally
@@ -90,14 +95,17 @@ pub struct Application {
 
     /// Used to set charm config at deployment time
     #[serde(default)]
+    #[serde(skip_serializing_if = "HashMap::is_empty")]
     pub options: HashMap<String, Value>,
 
     /// Model selector/affinity expression for specifying pod placement
     ///
     /// Use for Kubernetes applications, not relevant for IaaS applications
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub placement: Option<String>,
 
     /// Plan under which the application is to be deployed
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub plan: Option<String>,
 
     /// Whether the application requires access to cloud credentials
@@ -108,6 +116,7 @@ pub struct Application {
     ///
     /// See <https://juju.is/docs/sdk/resources> for more info
     #[serde(default)]
+    #[serde(skip_serializing_if = "HashMap::is_empty")]
     pub resources: HashMap<String, String>,
 
     /// How many units to use for the application
@@ -115,6 +124,7 @@ pub struct Application {
     pub scale: u32,
 
     /// Series to use when deploying a local charm
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub series: Option<String>,
 
     /// Charm source code location
@@ -122,14 +132,17 @@ pub struct Application {
     /// If the path starts with `.`, it's interpreted as being relative to
     /// the bundle itself. Otherwise, it's interpreted as being relative to
     /// `$CHARM_SOURCE_DIR`.
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub source: Option<String>,
 
     /// Constraints for storage to assign to units of the application
     #[serde(default)]
+    #[serde(skip_serializing_if = "HashMap::is_empty")]
     pub storage: HashMap<String, String>,
 
     /// Which Node (Kubernetes) or Unit (IaaS) this charm should be assigned to
     #[serde(default)]
+    #[serde(skip_serializing_if = "Vec::is_empty")]
     pub to: Vec<String>,
 }
 
@@ -164,7 +177,7 @@ impl Application {
             .as_ref()
             .map(ToString::to_string)
             .expect("Built charm directory can't be empty");
-        let charm = CharmSource::load(source_dir.clone())?;
+        let charm = CharmSource::load(&PathBuf::from(&source_dir))?;
         let resources = charm.resources_with_defaults(&self.resources)?;
 
         let args = vec!["upgrade-charm", name, "--path", &source_dir]
@@ -208,69 +221,9 @@ impl Application {
         }
     }
 
-    pub fn upload_charm_store(
-        &self,
-        name: &str,
-        publish_namespace: Option<String>,
-        bundle_path: &str,
-        channels: &[String],
-        destructive_mode: bool,
-    ) -> Result<String, JujuError> {
-        let name = self
-            .charm
-            .as_ref()
-            .map(|c| c.name.as_ref())
-            .unwrap_or(name)
-            .to_string();
-        let source = self.source(&name, bundle_path);
-
-        let charm = self
-            .charm
-            .as_ref()
-            .ok_or(JujuError::UnknownCharmURLError(name))?;
-
-        let cs_url = charm
-            .with_namespace(publish_namespace)
-            .with_store(Some("cs".into()));
-
-        match &source {
-            Some(source) => {
-                // If `source` starts with `.`, it's a relative path from the bundle we're
-                // deploying. Otherwise, look in `CHARM_SOURCE_DIR` for it.
-                let charm_path = if source.starts_with('.') {
-                    PathBuf::from(bundle_path).parent().unwrap().join(source)
-                } else {
-                    paths::charm_source_dir().join(source)
-                };
-
-                let charm = CharmSource::load(&charm_path)?;
-
-                let rev_url = charm.upload_charm_store(
-                    &cs_url.to_string(),
-                    &self.resources,
-                    channels,
-                    destructive_mode,
-                )?;
-                Ok(rev_url)
-            }
-            None => {
-                let channel = self
-                    .channel
-                    .as_ref()
-                    .map(|c| Channel::from_str(c))
-                    .transpose()?
-                    .unwrap_or(Channel::Stable);
-
-                let revision = charm.show(channel)?.id_revision.revision;
-                Ok(charm.with_revision(Some(revision)).to_string())
-            }
-        }
-    }
-
     pub fn upload_charmhub(
         &self,
         name: &str,
-        publish_namespace: Option<String>,
         bundle_path: &str,
         channels: &[String],
         destructive_mode: bool,
@@ -288,10 +241,6 @@ impl Application {
             .as_ref()
             .ok_or(JujuError::UnknownCharmURLError(name))?;
 
-        let cs_url = charm
-            .with_namespace(publish_namespace)
-            .with_store(Some("cs".into()));
-
         match &source {
             Some(source) => {
                 // If `source` starts with `.`, it's a relative path from the bundle we're
@@ -304,12 +253,7 @@ impl Application {
 
                 let charm = CharmSource::load(&charm_path)?;
 
-                let rev_url = charm.upload_charmhub(
-                    &cs_url.to_string(),
-                    &self.resources,
-                    channels,
-                    destructive_mode,
-                )?;
+                let rev_url = charm.upload_charmhub(&self.resources, channels, destructive_mode)?;
                 Ok(rev_url)
             }
             None => {
@@ -345,6 +289,7 @@ pub struct Bundle {
     pub bundle: Option<Series>,
 
     /// Long-form description of the bundle
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
 
     /// Pairs of application names that require a relation between them
@@ -430,39 +375,19 @@ impl Bundle {
         Ok(())
     }
 
-    pub fn upload_charm_store(
-        &self,
-        bundle_path: &str,
-        cs_url: &str,
-        channels: &[String],
-    ) -> Result<(), JujuError> {
-        let output: HashMap<String, String> =
-            from_slice(&cmd::get_output("charm", &["push", bundle_path, cs_url])?)?;
-        let bundle_url = output["url"].clone();
+    pub fn upload_charmhub(&self, bundle_path: &str, channel: &str) -> Result<(), JujuError> {
+        let pack_output = cmd::get_output("charmcraft", &["pack", "-p", bundle_path])?;
 
-        for channel in channels.iter() {
-            self.release(&bundle_url, channel)?;
-        }
+        // Look for filename of zipped bundle in command output. Surrounded by single quotes.
+        let path = std::str::from_utf8(&pack_output)
+            .unwrap()
+            .chars()
+            .skip_while(|&ch| ch != '\'')
+            .skip(1)
+            .take_while(|&ch| ch != '\'')
+            .collect::<String>();
 
-        Ok(())
-    }
-
-    pub fn upload_charmhub(
-        &self,
-        bundle_path: &str,
-        cs_url: &CharmURL,
-        channels: &[String],
-    ) -> Result<(), JujuError> {
-        cmd::run("charmcraft", &["pack", "-p", bundle_path])?;
-
-        let zip = PathBuf::from(bundle_path)
-            .join(&cs_url.name)
-            .with_extension("zip");
-
-        let args: Vec<_> = vec!["upload".into(), zip.to_string_lossy().to_string()]
-            .into_iter()
-            .chain(channels.iter().map(|ch| format!("--release={}", ch)))
-            .collect();
+        let args = vec!["upload", &path, "--release", channel];
 
         let output = cmd::get_output("charmcraft", &args)?;
 
@@ -523,7 +448,7 @@ impl Bundle {
 
                     let charm = CharmSource::load(&charm_path)?;
 
-                    charm.build(name, destructive_mode)?;
+                    charm.build(destructive_mode)?;
 
                     new_application.resources =
                         charm.resources_with_defaults(&new_application.resources)?;

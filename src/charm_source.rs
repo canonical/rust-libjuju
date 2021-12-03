@@ -7,7 +7,6 @@ use std::str::from_utf8;
 use ex::fs::{read, File};
 use serde_derive::{Deserialize, Serialize};
 use serde_yaml::from_slice;
-use tempfile::TempDir;
 use zip::ZipArchive;
 
 use crate::charm_url::CharmURL;
@@ -190,109 +189,9 @@ impl CharmSource {
         path.push(&format!("{}_ubuntu-20.04-amd64.charm", self.metadata.name));
         CharmURL::from_path(path)
     }
-    /// Push the charm to the charm store, and return the revision URL
-    fn push(&self, cs_url: &str, resources: &HashMap<String, String>) -> Result<String, JujuError> {
-        let dir = TempDir::new()?;
-
-        let build_dir = {
-            let zipped = self.artifact_path().to_string();
-            let build_dir = dir.path().to_string_lossy();
-            cmd::run("unzip", &[zipped.as_str(), "-d", &*build_dir])?;
-            build_dir.to_string()
-        };
-
-        let resources = self.resources_with_defaults(resources)?;
-
-        let args = vec!["push", &build_dir, cs_url]
-            .into_iter()
-            .map(String::from)
-            .chain(
-                resources
-                    .iter()
-                    .flat_map(|(k, v)| vec![String::from("--resource"), format!("{}={}", k, v)]),
-            )
-            .collect::<Vec<_>>();
-
-        // Ensure all oci-image resources are pulled locally into Docker,
-        // so that we can push them into the charm store
-        for (name, value) in resources {
-            let res = self.metadata.resources.get(&name).expect("Must exist!");
-
-            if res.kind != ResourceType::OciImage {
-                continue;
-            }
-
-            cmd::run("docker", &["pull", &value])?;
-        }
-
-        let mut output = cmd::get_output("charm", &args)?;
-
-        // The command output is valid YAML that includes the URL that we care about, but
-        // also includes output from `docker push`, so just chop out the first line that's
-        // valid YAML.
-        output.truncate(output.iter().position(|&x| x == 0x0a).unwrap());
-        let push_metadata: HashMap<String, String> = from_slice(&output)?;
-        let rev_url = push_metadata["url"].clone();
-
-        // Attempt to tag the revision with the git commit, but ignore any failures
-        // getting the commit.
-        match cmd::get_output("git", &["rev-parse", "HEAD"]) {
-            Ok(rev_output) => {
-                let revision = String::from_utf8_lossy(&rev_output);
-                cmd::run("charm", &["set", &rev_url, &format!("commit={}", revision)])?;
-            }
-            Err(err) => {
-                println!(
-                    "Error while getting git revision for {}, not tagging: `{}`",
-                    self.metadata.name, err
-                );
-            }
-        }
-
-        Ok(rev_url)
-    }
-
-    /// Promote a charm from unpublished to the given channel
-    fn promote(&self, rev_url: &str, to: &str) -> Result<(), JujuError> {
-        let resources: Vec<HashMap<String, String>> = from_slice(&cmd::get_output(
-            "charm",
-            &["list-resources", rev_url, "--format", "yaml"],
-        )?)?;
-
-        let release_args = vec!["release", rev_url, "--channel", to]
-            .into_iter()
-            .map(String::from)
-            .chain(resources.iter().flat_map(|r| {
-                vec![
-                    "--resource".to_string(),
-                    format!("{}-{}", r["name"], r["revision"]),
-                ]
-            }))
-            .collect::<Vec<_>>();
-
-        cmd::run("charm", &release_args)
-    }
-
-    pub fn upload_charm_store(
-        &self,
-        url: &str,
-        resources: &HashMap<String, String>,
-        to: &[String],
-        destructive_mode: bool,
-    ) -> Result<String, JujuError> {
-        self.build(destructive_mode)?;
-        let rev_url = self.push(url, resources)?;
-
-        for channel in to {
-            self.promote(&rev_url, channel)?;
-        }
-
-        Ok(rev_url)
-    }
 
     pub fn upload_charmhub(
         &self,
-        url: &str,
         resources: &HashMap<String, String>,
         to: &[String],
         destructive_mode: bool,
@@ -322,7 +221,7 @@ impl CharmSource {
                 )
                 .unwrap();
 
-                let output = cmd::get_stderr(
+                let output = cmd::get_output(
                     "charmcraft",
                     &["resource-revisions", &self.metadata.name, name],
                 )
@@ -334,18 +233,22 @@ impl CharmSource {
             })
             .collect();
 
-        let args: Vec<_> = vec!["upload".into(), self.artifact_path().to_string()]
-            .into_iter()
-            .chain(to.iter().map(|ch| format!("--release={}", ch)))
-            .chain(resources)
-            .collect();
+        let args: Vec<_> = vec![
+            "upload".into(),
+            "--quiet".into(),
+            self.artifact_path().to_string(),
+        ]
+        .into_iter()
+        .chain(to.iter().map(|ch| format!("--release={}", ch)))
+        .chain(resources)
+        .collect();
 
-        let mut output = cmd::get_stderr("charmcraft", &args)?;
+        let mut output = cmd::get_output("charmcraft", &args)?;
         output.drain(0..9);
         output.truncate(output.iter().position(|&x| x == 0x20).unwrap());
         let revision = from_utf8(&output).unwrap().parse::<u32>().unwrap();
 
-        Ok(CharmURL::parse(url)
+        Ok(CharmURL::parse(&self.metadata.name)
             .unwrap()
             .with_revision(Some(revision))
             .to_string())
