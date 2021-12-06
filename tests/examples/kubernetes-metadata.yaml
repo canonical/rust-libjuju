@@ -1,0 +1,54 @@
+# https://juju.is/docs/sdk/metadata-reference
+name: super-charm
+summary: a really great charm
+description: |
+    This is a really great charm, whose metadata is suitably complete so as to
+    demonstrate as many of the fields as possible.
+maintainers:
+    - Joe Bloggs <joe.bloggs@email.com>
+
+containers:
+    super-app:
+        resource: super-app-image
+        mounts:
+            - storage: logs
+              location: /logs
+
+    super-app-helper:
+        bases:
+            - name: ubuntu
+              channel: ubuntu/20.04
+              architectures:
+                  - amd64
+                  - arm64
+
+resources:
+    super-app-image:
+        type: oci-image
+        description: OCI image for the Super App (hub.docker.com/_/super-app)
+
+    definitions:
+        type: file
+        description: A small SQLite3 database of definitions needed by super app
+        filename: definitions.db
+
+provides:
+    super-worker:
+        interface: super-worker
+
+requires:
+    ingress:
+        interface: ingress
+        optional: true
+        limit: 1
+
+peer:
+    super-replicas:
+        interface: super-replicas
+
+storage:
+    logs:
+        type: filesystem
+        location: /logs
+        description: Storage mount for application logs
+        shared: true

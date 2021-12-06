@@ -1,3 +1,18 @@
+pub mod config;
+pub mod container;
+pub mod device;
+pub mod metadata;
+pub mod relation;
+pub mod resource;
+pub mod storage;
+
+pub use config::{Config, ConfigOption};
+pub use container::{BaseContainer, Container, ContainerBase, ContainerMount, ResourceContainer};
+pub use metadata::Metadata;
+pub use relation::{Relation, RelationScope};
+pub use resource::Resource;
+pub use storage::Storage;
+
 use std::collections::HashMap;
 use std::env::current_dir;
 use std::io::Read;
@@ -13,109 +28,8 @@ use crate::charm_url::CharmURL;
 use crate::cmd;
 use crate::error::JujuError;
 
-/// Config option as defined in config.yaml
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(deny_unknown_fields, tag = "type", rename_all = "kebab-case")]
-pub enum ConfigOption {
-    /// String config option
-    String {
-        default: Option<String>,
-        description: String,
-    },
-
-    /// Integer config option
-    #[serde(rename = "int")]
-    Integer { default: i64, description: String },
-
-    /// Boolean config option
-    Boolean { default: bool, description: String },
-}
-
-/// A charm's config.yaml file
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(deny_unknown_fields, rename_all = "kebab-case")]
-pub struct Config {
-    pub options: HashMap<String, ConfigOption>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(deny_unknown_fields, rename_all = "kebab-case")]
-pub struct Container {
-    /// Back oci-image resource
-    pub resource: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[serde(deny_unknown_fields, rename_all = "kebab-case")]
-pub enum ResourceType {
-    File,
-    OciImage,
-    Pypi,
-    Url,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(deny_unknown_fields, rename_all = "kebab-case")]
-pub struct Resource {
-    #[serde(rename = "type")]
-    pub kind: ResourceType,
-    pub description: String,
-    pub upstream_source: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[serde(deny_unknown_fields, rename_all = "kebab-case")]
-pub enum RelationScope {
-    Global,
-    Container,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(deny_unknown_fields, rename_all = "kebab-case")]
-pub struct Interface {
-    pub interface: String,
-    pub scope: Option<RelationScope>,
-    pub schema: Option<String>,
-    #[serde(default)]
-    pub versions: Vec<String>,
-}
-
-/// A charm's metadata.yaml file
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(deny_unknown_fields, rename_all = "kebab-case")]
-pub struct Metadata {
-    /// Machine-friendly name of the charm
-    pub name: String,
-
-    /// Long-form description of the charm
-    pub description: String,
-
-    /// Tweetable summary of the charm
-    pub summary: String,
-
-    /// Containers for the charm
-    #[serde(default)]
-    pub containers: HashMap<String, Container>,
-
-    /// Series. Removed in metadata V2, so used by Juju to determine if charm can use pod_spec.
-    #[serde(default)]
-    pub series: Option<Vec<String>>,
-
-    /// Resources for the charm
-    #[serde(default)]
-    pub resources: HashMap<String, Resource>,
-
-    /// Which other charms this charm requires a relation to in order to run
-    #[serde(default)]
-    pub requires: HashMap<String, Interface>,
-
-    /// Which types of relations this charm provides
-    #[serde(default)]
-    pub provides: HashMap<String, Interface>,
-}
-
 /// A charm, as represented by the source directory
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub struct CharmSource {
     /// The path to the charm's source code
@@ -209,31 +123,32 @@ impl CharmSource {
             .filter_map(|(name, value)| {
                 let res = self.metadata.resources.get(name).expect("Must exist!");
 
-                if res.kind != ResourceType::OciImage {
-                    return None;
+                match res {
+                    Resource::OciImage { .. } => {
+                        cmd::run(
+                            "charmcraft",
+                            &[
+                                "upload-resource",
+                                &self.metadata.name,
+                                name,
+                                "--image",
+                                value,
+                            ],
+                        )
+                        .unwrap();
+
+                        let output = cmd::get_output(
+                            "charmcraft",
+                            &["resource-revisions", &self.metadata.name, name],
+                        )
+                        .unwrap();
+                        let output = String::from_utf8_lossy(&output);
+                        let revision = output.lines().nth(1).unwrap().split(' ').next().unwrap();
+
+                        Some(format!("--resource={}:{}", name, revision))
+                    }
+                    Resource::File { .. } => None,
                 }
-
-                cmd::run(
-                    "charmcraft",
-                    &[
-                        "upload-resource",
-                        &self.metadata.name,
-                        name,
-                        "--image",
-                        value,
-                    ],
-                )
-                .unwrap();
-
-                let output = cmd::get_output(
-                    "charmcraft",
-                    &["resource-revisions", &self.metadata.name, name],
-                )
-                .unwrap();
-                let output = String::from_utf8_lossy(&output);
-                let revision = output.lines().nth(1).unwrap().split(' ').next().unwrap();
-
-                Some(format!("--resource={}:{}", name, revision))
             })
             .collect();
 
@@ -267,9 +182,20 @@ impl CharmSource {
             .resources
             .iter()
             .map(|(k, v)| -> Result<(String, String), JujuError> {
-                match (configured.get(k), &v.upstream_source) {
-                    (Some(val), _) | (_, Some(val)) => Ok((k.clone(), val.clone())),
-                    (None, None) => Err(JujuError::ResourceNotFound(
+                if let Some(c) = configured.get(k) {
+                    return Ok((k.clone(), c.clone()));
+                }
+
+                match v {
+                    Resource::OciImage {
+                        upstream_source: Some(us),
+                        ..
+                    } => Ok((k.clone(), us.clone())),
+                    Resource::OciImage { .. } => Err(JujuError::ResourceNotFound(
+                        k.clone(),
+                        self.metadata.name.clone(),
+                    )),
+                    Resource::File { .. } => Err(JujuError::ResourceNotFound(
                         k.clone(),
                         self.metadata.name.clone(),
                     )),
