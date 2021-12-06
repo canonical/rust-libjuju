@@ -97,6 +97,10 @@ pub struct Metadata {
     #[serde(default)]
     pub containers: HashMap<String, Container>,
 
+    /// Series. Removed in metadata V2, so used by Juju to determine if charm can use pod_spec.
+    #[serde(default)]
+    pub series: Option<Vec<String>>,
+
     /// Resources for the charm
     #[serde(default)]
     pub resources: HashMap<String, Resource>,
