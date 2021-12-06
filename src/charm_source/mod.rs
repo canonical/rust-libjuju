@@ -16,7 +16,7 @@ pub use storage::Storage;
 use std::collections::HashMap;
 use std::env::current_dir;
 use std::io::Read;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::str::from_utf8;
 
 use ex::fs::{read, File};
@@ -43,7 +43,8 @@ pub struct CharmSource {
 }
 
 impl CharmSource {
-    fn load_dir(source: &Path) -> Result<Self, JujuError> {
+    fn load_dir<P: Into<PathBuf>>(source: P) -> Result<Self, JujuError> {
+        let source = source.into();
         let config: Option<Config> = read(source.join("config.yaml"))
             .map(|bytes| from_slice(&bytes))
             .unwrap_or(Ok(None))?;
@@ -56,8 +57,9 @@ impl CharmSource {
         })
     }
 
-    fn load_zip(source: &Path) -> Result<Self, JujuError> {
-        let mut archive = ZipArchive::new(File::open(source)?)?;
+    fn load_zip<P: Into<PathBuf>>(source: P) -> Result<Self, JujuError> {
+        let source = source.into();
+        let mut archive = ZipArchive::new(File::open(&source)?)?;
         let config: Option<Config> = archive
             .by_name("config.yaml")
             .map(|mut zf| -> Result<_, JujuError> {
@@ -82,7 +84,8 @@ impl CharmSource {
     }
 
     /// Load a charm from its source directory
-    pub fn load(source: &Path) -> Result<Self, JujuError> {
+    pub fn load<P: Into<PathBuf>>(source: P) -> Result<Self, JujuError> {
+        let source = source.into();
         if source.is_file() {
             Self::load_zip(source)
         } else {
