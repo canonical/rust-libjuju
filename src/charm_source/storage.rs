@@ -3,6 +3,7 @@ use serde_derive::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(deny_unknown_fields, rename_all = "kebab-case", tag = "type")]
 pub enum Storage {
+    #[serde(rename_all = "kebab-case")]
     Filesystem {
         /// Description of the storage requested
         #[serde(default)]
@@ -36,6 +37,7 @@ pub enum Storage {
         #[serde(default)]
         properties: Vec<String>,
     },
+    #[serde(rename_all = "kebab-case")]
     Block {
         /// Description of the storage requested
         #[serde(default)]

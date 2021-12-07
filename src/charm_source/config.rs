@@ -7,16 +7,18 @@ use serde_derive::{Deserialize, Serialize};
 #[serde(deny_unknown_fields, tag = "type", rename_all = "kebab-case")]
 pub enum ConfigOption {
     /// String config option
+    #[serde(rename_all = "kebab-case")]
     String {
         default: Option<String>,
         description: String,
     },
 
     /// Integer config option
-    #[serde(rename = "int")]
+    #[serde(rename = "int", rename_all = "kebab-case")]
     Integer { default: i64, description: String },
 
     /// Boolean config option
+    #[serde(rename_all = "kebab-case")]
     Boolean { default: bool, description: String },
 }
 

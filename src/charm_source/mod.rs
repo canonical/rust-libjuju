@@ -51,7 +51,7 @@ impl CharmSource {
         let metadata = from_slice(&read(source.join("metadata.yaml"))?)?;
 
         Ok(Self {
-            source: source.into(),
+            source,
             config,
             metadata,
         })
@@ -77,7 +77,7 @@ impl CharmSource {
         };
 
         Ok(Self {
-            source: source.into(),
+            source,
             config,
             metadata,
         })
