@@ -3,7 +3,6 @@
 use std::io::Error as IOError;
 
 use ex::io::Error as ExIOError;
-use reqwest::Error as ReqwestError;
 use serde_yaml::Error as YamlError;
 use thiserror::Error as ThisError;
 use zip::result::ZipError;
@@ -36,9 +35,6 @@ pub enum JujuError {
 
     #[error("Error running subcommand `{0}`: `{1}`")]
     SubcommandError(String, String),
-
-    #[error("Error while talking to network: {0}")]
-    NetworkError(#[from] ReqwestError),
 
     #[error("Error while talking to charm store: {0}")]
     ZipError(#[from] ZipError),
