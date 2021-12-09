@@ -29,7 +29,7 @@ pub enum Value {
 ///
 /// TODO: These seem to be the only ones in use, are there any others?
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(deny_unknown_fields, rename_all = "kebab-case")]
+#[serde(rename_all = "kebab-case")]
 pub struct Annotations {
     pub gui_x: String,
     pub gui_y: String,
@@ -41,7 +41,6 @@ pub struct Annotations {
 ///
 /// [spec]: https://github.com/juju/charm/blob/master/bundledata.go
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
-#[serde(deny_unknown_fields)]
 pub struct Application {
     /// Arbitrary annotations intepreted by things other than Juju itself
     #[serde(default)]
@@ -233,7 +232,6 @@ impl Application {
 
 /// Represents a `bundle.yaml` file
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(deny_unknown_fields)]
 pub struct Bundle {
     /// Bundle name, used for uploading to charm store
     #[serde(default)]
@@ -395,7 +393,7 @@ impl Bundle {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(untagged, deny_unknown_fields)]
+#[serde(untagged)]
 enum CharmStoreResponse {
     Bundle(Bundle),
     #[serde(rename_all = "PascalCase")]

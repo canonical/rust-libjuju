@@ -16,14 +16,14 @@ pub enum Substrate {
 }
 
 #[derive(Debug, Clone, Deserialize, PartialEq)]
-#[serde(deny_unknown_fields, rename_all = "kebab-case")]
+#[serde(rename_all = "kebab-case")]
 pub struct ControllerMachines {
     pub active: u32,
     pub total: u32,
 }
 
 #[derive(Debug, Clone, Deserialize, PartialEq)]
-#[serde(deny_unknown_fields, rename_all = "kebab-case", tag = "type")]
+#[serde(rename_all = "kebab-case", tag = "type")]
 pub struct KubernetesPortForwardConfig {
     pub api_host: String,
     pub ca_cert: String,
@@ -34,13 +34,13 @@ pub struct KubernetesPortForwardConfig {
 }
 
 #[derive(Debug, Clone, Deserialize, PartialEq)]
-#[serde(deny_unknown_fields, rename_all = "kebab-case", tag = "type")]
+#[serde(rename_all = "kebab-case", tag = "type")]
 pub enum ProxyConfig {
     KubernetesPortForward { config: KubernetesPortForwardConfig },
 }
 
 #[derive(Debug, Clone, Deserialize, PartialEq)]
-#[serde(deny_unknown_fields, rename_all = "kebab-case")]
+#[serde(rename_all = "kebab-case")]
 pub struct Controller {
     pub active_controller_machine_count: u32,
     #[serde(default)]
@@ -62,7 +62,7 @@ pub struct Controller {
 }
 
 #[derive(Debug, Clone, Deserialize, PartialEq)]
-#[serde(deny_unknown_fields, rename_all = "kebab-case")]
+#[serde(rename_all = "kebab-case")]
 pub struct ControllerYaml {
     pub current_controller: Option<String>,
     pub controllers: HashMap<String, Controller>,

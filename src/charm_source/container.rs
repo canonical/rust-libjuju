@@ -4,7 +4,7 @@ use serde_derive::{Deserialize, Serialize};
 ///
 /// Note: One of either resource or bases must be specified.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[serde(deny_unknown_fields, rename_all = "kebab-case")]
+#[serde(rename_all = "kebab-case")]
 pub struct ContainerBase {
     /// Name of the OS
     ///
@@ -24,7 +24,7 @@ pub struct ContainerBase {
 ///
 /// Note: One of either resource or bases must be specified.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[serde(deny_unknown_fields, rename_all = "kebab-case")]
+#[serde(rename_all = "kebab-case")]
 pub struct ContainerMount {
     /// Name of the storage to mount from the charm storage
     pub storage: String,
@@ -36,7 +36,7 @@ pub struct ContainerMount {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[serde(deny_unknown_fields, rename_all = "kebab-case")]
+#[serde(rename_all = "kebab-case")]
 pub struct ResourceContainer {
     /// Reference for an entry in the resources field
     ///
@@ -50,7 +50,7 @@ pub struct ResourceContainer {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[serde(deny_unknown_fields, rename_all = "kebab-case")]
+#[serde(rename_all = "kebab-case")]
 pub struct BaseContainer {
     /// A list of bases in descending order of preference for use in resolving a container image
     ///
@@ -66,7 +66,7 @@ pub struct BaseContainer {
 
 /// A Kubernetes container for a charm
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[serde(deny_unknown_fields, rename_all = "kebab-case", untagged)]
+#[serde(rename_all = "kebab-case", untagged)]
 pub enum Container {
     Resource(ResourceContainer),
     Base(BaseContainer),

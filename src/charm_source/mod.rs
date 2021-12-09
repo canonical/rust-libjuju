@@ -32,7 +32,6 @@ use crate::error::JujuError;
 
 /// A charm, as represented by the source directory
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[serde(deny_unknown_fields)]
 pub struct CharmSource {
     /// The path to the charm's source code
     source: PathBuf,

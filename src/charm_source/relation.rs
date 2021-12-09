@@ -2,7 +2,7 @@ use serde_derive::{Deserialize, Serialize};
 
 /// Scope of a given relation
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[serde(deny_unknown_fields, rename_all = "kebab-case")]
+#[serde(rename_all = "kebab-case")]
 pub enum RelationScope {
     Global,
     Container,
@@ -16,7 +16,7 @@ impl Default for RelationScope {
 
 /// Relation between charms
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
-#[serde(deny_unknown_fields, rename_all = "kebab-case")]
+#[serde(rename_all = "kebab-case")]
 pub struct Relation {
     /// The interface schema that this relation conforms to
     pub interface: String,

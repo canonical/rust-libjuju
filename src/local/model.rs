@@ -8,7 +8,7 @@ use crate::error::JujuError;
 use crate::paths::juju_data_dir;
 
 #[derive(Debug, Clone, Deserialize)]
-#[serde(deny_unknown_fields, tag = "type", rename_all = "kebab-case")]
+#[serde(tag = "type", rename_all = "kebab-case")]
 pub enum Model {
     Iaas {
         uuid: String,
@@ -21,7 +21,7 @@ pub enum Model {
 }
 
 #[derive(Debug, Clone, Deserialize)]
-#[serde(deny_unknown_fields, rename_all = "kebab-case")]
+#[serde(rename_all = "kebab-case")]
 pub struct Models {
     #[serde(default)]
     pub models: HashMap<String, Model>,
@@ -29,7 +29,6 @@ pub struct Models {
 }
 
 #[derive(Debug, Clone, Deserialize)]
-#[serde(deny_unknown_fields)]
 pub struct ModelYaml {
     pub controllers: HashMap<String, Models>,
 }

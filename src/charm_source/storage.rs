@@ -1,7 +1,7 @@
 use serde_derive::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[serde(deny_unknown_fields, rename_all = "kebab-case", tag = "type")]
+#[serde(rename_all = "kebab-case", tag = "type")]
 pub enum Storage {
     #[serde(rename_all = "kebab-case")]
     Filesystem {

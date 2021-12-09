@@ -12,7 +12,7 @@ use super::storage::Storage;
 ///
 /// See https://juju.is/docs/sdk/metadata-reference
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[serde(deny_unknown_fields, rename_all = "kebab-case")]
+#[serde(rename_all = "kebab-case")]
 pub struct Metadata {
     /// The name of the charm
     ///

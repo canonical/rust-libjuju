@@ -2,7 +2,7 @@ use serde_derive::{Deserialize, Serialize};
 
 /// Type of charm and/or bundle
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(deny_unknown_fields, rename_all = "kebab-case")]
+#[serde(rename_all = "kebab-case")]
 pub enum Series {
     // If the charm/bundle runs on Kubernetes instead of a specific OS
     Kubernetes,

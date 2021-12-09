@@ -37,7 +37,7 @@ use std::collections::HashMap;
 //struct SupportedSeries {}
 //
 //#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-//#[serde(deny_unknown_fields, rename_all = "PascalCase")]
+//#[serde(rename_all = "PascalCase")]
 //enum MetaField {
 //    Id {
 //        Foo: u32,
@@ -48,13 +48,13 @@ use std::collections::HashMap;
 //}
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(deny_unknown_fields, rename_all = "kebab-case")]
+#[serde(rename_all = "kebab-case")]
 pub enum ResourceType {
     OciImage,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(deny_unknown_fields, rename_all = "kebab-case")]
+#[serde(rename_all = "kebab-case")]
 pub struct Resource {
     pub name: String,
     #[serde(rename = "type")]
@@ -67,7 +67,7 @@ pub struct Resource {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(deny_unknown_fields, rename_all = "PascalCase")]
+#[serde(rename_all = "PascalCase")]
 pub struct ShowMetadata {
     #[serde(default)]
     pub deployment: HashMap<String, String>,
@@ -91,44 +91,44 @@ pub struct ShowMetadata {
     pub min_juju_version: String,
 }
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(deny_unknown_fields, rename_all = "PascalCase")]
+#[serde(rename_all = "PascalCase")]
 pub struct IdName {
     pub name: String,
 }
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(deny_unknown_fields, rename_all = "PascalCase")]
+#[serde(rename_all = "PascalCase")]
 pub struct IdRevision {
     pub revision: u32,
 }
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(deny_unknown_fields, rename_all = "PascalCase")]
+#[serde(rename_all = "PascalCase")]
 pub struct OwnerUser {
     pub user: String,
 }
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(deny_unknown_fields, rename_all = "PascalCase")]
+#[serde(rename_all = "PascalCase")]
 pub struct Perm {
     pub read: Vec<String>,
     pub write: Vec<String>,
 }
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(deny_unknown_fields, rename_all = "PascalCase")]
+#[serde(rename_all = "PascalCase")]
 pub struct Promulgated {
     pub promulgated: bool,
 }
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(deny_unknown_fields, rename_all = "PascalCase")]
+#[serde(rename_all = "PascalCase")]
 pub struct Published {
     pub channel: String,
     pub current: bool,
 }
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(deny_unknown_fields, rename_all = "PascalCase")]
+#[serde(rename_all = "PascalCase")]
 pub struct SupportedSeries {
     pub supported_series: Vec<String>,
 }
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(deny_unknown_fields, rename_all = "kebab-case")]
+#[serde(rename_all = "kebab-case")]
 pub struct Show {
     pub bugs_url: String,
     pub charm_metadata: ShowMetadata,
@@ -144,14 +144,13 @@ pub struct Show {
 }
 
 //#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-//#[serde(deny_unknown_fields)]
 //pub struct Meta {
 //    id: MetaField,
 //    tags: MetaField,
 //}
 //
 //#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-//#[serde(deny_unknown_fields, rename_all = "PascalCase")]
+//#[serde(rename_all = "PascalCase")]
 //pub struct MetaResponse {
 //    id: String,
 //    meta: Meta,
