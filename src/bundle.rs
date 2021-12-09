@@ -49,6 +49,7 @@ pub struct Application {
     pub annotations: Option<Annotations>,
 
     /// Preferred channel to use when deploying a remote charm
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub channel: Option<String>,
 
     /// URL of the charm

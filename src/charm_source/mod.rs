@@ -1,3 +1,4 @@
+pub mod charmcraft;
 pub mod config;
 pub mod container;
 pub mod device;
@@ -6,6 +7,7 @@ pub mod relation;
 pub mod resource;
 pub mod storage;
 
+pub use charmcraft::{Base, BaseSpec, Charmcraft};
 pub use config::{Config, ConfigOption};
 pub use container::{BaseContainer, Container, ContainerBase, ContainerMount, ResourceContainer};
 pub use metadata::Metadata;
@@ -40,6 +42,9 @@ pub struct CharmSource {
 
     /// The charm's metadata.yaml file
     pub metadata: Metadata,
+
+    /// The charm's charmcraft.yaml file
+    pub charmcraft: Charmcraft,
 }
 
 impl CharmSource {
@@ -49,11 +54,13 @@ impl CharmSource {
             .map(|bytes| from_slice(&bytes))
             .unwrap_or(Ok(None))?;
         let metadata = from_slice(&read(source.join("metadata.yaml"))?)?;
+        let charmcraft = from_slice(&read(source.join("charmcraft.yaml"))?)?;
 
         Ok(Self {
             source,
             config,
             metadata,
+            charmcraft,
         })
     }
 
@@ -76,10 +83,18 @@ impl CharmSource {
             from_slice(buf.as_bytes())?
         };
 
+        let charmcraft = {
+            let mut zf = archive.by_name("charmcraft.yaml")?;
+            let mut buf = String::new();
+            zf.read_to_string(&mut buf)?;
+            from_slice(buf.as_bytes())?
+        };
+
         Ok(Self {
             source,
             config,
             metadata,
+            charmcraft,
         })
     }
 
@@ -107,7 +122,18 @@ impl CharmSource {
 
     pub fn artifact_path(&self) -> CharmURL {
         let mut path = current_dir().unwrap();
-        path.push(&format!("{}_ubuntu-20.04-amd64.charm", self.metadata.name));
+        let base = &self.charmcraft.bases[0].build_on[0];
+        let arch = self
+            .charmcraft
+            .architectures
+            .get(0)
+            .map(String::as_str)
+            .unwrap_or("amd64");
+
+        path.push(&format!(
+            "{}_{}-{}-{}.charm",
+            self.metadata.name, base.name, base.channel, arch
+        ));
         CharmURL::from_path(path)
     }
 
